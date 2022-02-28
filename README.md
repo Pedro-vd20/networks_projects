@@ -1,28 +1,18 @@
 # Project 1: Transmission Control Protocol
-### Computer Networks (CS-UH 3012) - Spring 2022
-1 Code of Conduct
-All assignments are graded, meaning we expect you to adhere to the academic integrity
-standards of NYU Abu Dhabi. To avoid any confusion regarding this, we will briefly state what is
-and isn’t allowed when working on an assignment.
+#### Computer Networks (CS-UH 3012) - Spring 2022
+### 1. Code of Conduct
+
+All assignments are graded, meaning we expect you to adhere to the academic integrity standards of NYU Abu Dhabi. To avoid any confusion regarding this, we will briefly state what is and isn’t allowed when working on an assignment.
+
 1. Any document and program code that you submit must be fully written by yourself.
-2. You can discuss your work with fellow students, as long as these discussions are
-restricted to general solution techniques. In other words, these discussions should not
-be about concrete code you are writing, nor about specific results you wish to submit.
-3. When discussing an assignment with others, this should never lead to you possessing
-the complete or partial solution of others, regardless of whether the solution is in paper
-or digital form, and independent of who made the solution.
-4. You are not allowed to possess solutions by someone from a different year or section, by
-someone from another university, or code from the Internet, etc.
+2. You can discuss your work with fellow students, as long as these discussions are restricted to general solution techniques. In other words, these discussions should not be about concrete code you are writing, nor about specific results you wish to submit.
+3. When discussing an assignment with others, this should never lead to you possessing the complete or partial solution of others, regardless of whether the solution is in paper or digital form, and independent of who made the solution.
+4. You are not allowed to possess solutions by someone from a different year or section, by someone from another university, or code from the Internet, etc.
 5. There is never a valid reason to share your code with fellow students.
 6. There is no valid reason to publish your code online in any form.
-7. Every student is responsible for the work they submit. If there is any doubt during the
-grading about whether a student created the assignment themselves (e.g. if the solution
-matches that of others), we reserve the option to let the student explain why this is the
-case. In case doubts remain, or we decide to directly escalate the issue, the suspected
-violations will be reported to the academic administration according to the policies of
-NYU Abu Dhabi. More details can be found at:
-https://students.nyuad.nyu.edu/academics/registration/academic-policies/academic-integ
-rity/
+7. Every student is responsible for the work they submit. If there is any doubt during the grading about whether a student created the assignment themselves (e.g. if the solution matches that of others), we reserve the option to let the student explain why this is the case. In case doubts remain, or we decide to directly escalate the issue, the suspected violations will be reported to the academic administration according to the policies of NYU Abu Dhabi. More details can be found at: 
+academics/registration/academic-policies/academic-integrity
+
 2 Project Objectives
 The task of this project is to implement TCP from the ground up. This project consists of two
 different tasks, mainly: reliable data transfer and congestion control. Both tasks have their own
