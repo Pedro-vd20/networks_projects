@@ -104,6 +104,6 @@ Coding style and usage of meaningful comments | 4
 2. Task 1 due: March 9, 2022 (30% of grade)
 3. Task 2 due: March 28, 2022 (70% of grade)
 
-**Submission Format and System:** You can directly submit your files as a zip file on Brightspace [https://brightspace.nyu.edu/](https://brightspace.nyu.edu/). Due to technical limitations, submissions via email are not accepted.
+**Submission Format and System:** You can directly submit your files as a zip file on [Brightspace](https://brightspace.nyu.edu/). Due to technical limitations, submissions via email are not accepted.
 
 **Late Submissions:** Late submissions will be penalized by 10% per 24 hours, with a maximum of 3 days late. In case of a late submission, please upload your zip file to Brightspace and inform the TA and the professor.
