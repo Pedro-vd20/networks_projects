@@ -11,9 +11,9 @@ struct node {
 typedef struct {
     struct node* head;
     struct node* tail;
+    int size;
 } linked_list;
 
-linked_list make_list(tcp_packet*);
 // add to the end of the list
 int add_node(linked_list*, tcp_packet*);
 tcp_packet* get_head(linked_list*);
