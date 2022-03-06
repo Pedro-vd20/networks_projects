@@ -106,6 +106,7 @@ int main(int argc, char **argv) {
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
+        // Check seqNo before doing this!
         fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
         fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
         sndpkt = make_packet(0);

@@ -36,6 +36,7 @@ void resend_packets(int sig)
         //Resend all packets range between 
         //sendBase and nextSeqNum
         VLOG(INFO, "Timout happend");
+        // currently only sending 1 packet
         if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
                     ( const struct sockaddr *)&serveraddr, serverlen) < 0)
         {
