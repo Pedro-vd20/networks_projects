@@ -28,6 +28,8 @@ int add_node(linked_list* ls, tcp_packet* packet) {
         ls->tail = newNode;
     }
     ls->tail->next = NULL;
+
+    return 0;
 }
 
 int is_empty(linked_list* ls) {
@@ -39,4 +41,5 @@ int delete_list(linked_list* ls) {
     while(!is_empty(ls)) {
         remove_node(ls, 1);
     }
+    return 0;
 }
