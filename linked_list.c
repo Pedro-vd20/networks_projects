@@ -40,3 +40,26 @@ int delete_list(linked_list* ls) {
         remove_node(ls, 1);
     }
 }
+
+tcp_packet *get_head(linked_list* TCP_window){
+    // if(TCP_window->head == TCP_window->tail){
+    //     free(TCP_window->head);
+    //     TCP_window->head = NULL;
+    //     return
+    // }
+    return TCP_window-> head -> p;
+}
+
+
+int remove_node(linked_list* TCP_window, int num_nodes) {
+
+    for(int i = 0; i < num_nodes; i++ ){
+        if(is_empty(TCP_window)){
+            return -1;
+        }
+        struct node *temp_pointer = TCP_window->head;
+        TCP_window->head = TCP_window->head->next;
+        free(temp_pointer);
+    }
+    return 1;
+}
