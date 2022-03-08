@@ -131,7 +131,6 @@ int main(int argc, char **argv) {
             sndpkt = make_packet(0);
             sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
             sndpkt->hdr.ctr_flags = ACK;
-            //sndpkt
             if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, (struct sockaddr *) &clientaddr, clientlen) < 0) {
                 error("ERROR in sendto");
             }
