@@ -29,9 +29,7 @@ int is_empty(linked_list* ls) {
 
 // free all memory 
 int delete_list(linked_list* ls) {
-    while(!is_empty(ls)) {
-        remove_node(ls, 1);
-    }
+    remove_node(ls, ls->size);
     return 0;
 }
 
@@ -54,6 +52,7 @@ int remove_node(linked_list* TCP_window, int num_nodes) {
         struct node *temp_pointer = TCP_window->head;
         TCP_window->head = TCP_window->head->next;
         free(temp_pointer);
+        TCP_window->size--;
     }
-    return 1;
+    return 0;
 }
