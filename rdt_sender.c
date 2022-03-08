@@ -11,22 +11,25 @@
 #include <time.h>
 #include <assert.h>
 
-#include"packet.h"
-#include"common.h"
+#include "packet.h"
+#include "common.h"
+#include "linked_list.h"
 
 #define STDIN_FD    0
 #define RETRY  120 //millisecond
 
 int next_seqno=0;
 int send_base=0;
-int window_size = 1;
+int window_size = 10;
 
 int sockfd, serverlen;
 struct sockaddr_in serveraddr;
 struct itimerval timer; 
 tcp_packet *sndpkt;
 tcp_packet *recvpkt;
-sigset_t sigmask;       
+sigset_t sigmask;   
+
+linked_list sliding_window;
 
 
 void resend_packets(int sig)
@@ -36,12 +39,22 @@ void resend_packets(int sig)
         //Resend all packets range between 
         //sendBase and nextSeqNum
         VLOG(INFO, "Timout happend");
-        // currently only sending 1 packet
-        if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
+        
+        // Resend all in-flight packets
+        struct node* curr = sliding_window.head;
+        while(curr != NULL) {
+            sndpkt = curr->p;
+            
+            // send packet
+            if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
                     ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-        {
-            error("sendto");
+            {
+                error("sendto");
+            }
+
+            curr = curr->next;
         }
+
     }
 }
 
@@ -122,25 +135,33 @@ int main (int argc, char **argv)
     //Stop and wait protocol
 
     init_timer(RETRY, resend_packets);
+    // build list of 10 packets
+    // set expected ack
+    // sending packets
+    // waiting for ack
+    
+    
+    int expected_ack;
     next_seqno = 0;
     while (1)
     {
-        len = fread(buffer, 1, DATA_SIZE, fp);
-        if ( len <= 0)
-        {
-            VLOG(INFO, "End Of File has been reached");
-            sndpkt = make_packet(0);
-            sendto(sockfd, sndpkt, TCP_HDR_SIZE,  0,
-                    (const struct sockaddr *)&serveraddr, serverlen);
-            break;
-        }
-        send_base = next_seqno;
-        next_seqno = send_base + len;
-        sndpkt = make_packet(len);
-        memcpy(sndpkt->data, buffer, len);
-        sndpkt->hdr.seqno = send_base;
-        //Wait for ACK
-        do {
+        // create sliding window
+        while(sliding_window.size < 10) {
+            len = fread(buffer, 1, DATA_SIZE, fp);
+            if(len <= 0) {
+                VLOG(INFO, "End Of File has been reached");
+                sndpkt = make_packet(0);
+                sendto(sockfd, sndpkt, TCP_HDR_SIZE,  0,
+                        (const struct sockaddr *)&serveraddr, serverlen);
+                break;   
+            }
+            send_base = next_seqno;
+            next_seqno = send_base + len;
+            sndpkt = make_packet(len);
+            memcpy(sndpkt->data, buffer, len);
+            sndpkt->hdr.seqno = send_base;
+
+            add_node(&sliding_window, sndpkt);
 
             VLOG(DEBUG, "Sending packet %d to %s", 
                     send_base, inet_ntoa(serveraddr.sin_addr));
@@ -154,6 +175,11 @@ int main (int argc, char **argv)
             {
                 error("sendto");
             }
+        }
+        sndpkt = get_head(&sliding_window);
+        expected_ack = sndpkt->hdr.seqno + sndpkt->hdr.data_size;
+        //Wait for ACK
+        do {
 
             start_timer();
             //ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
@@ -170,13 +196,20 @@ int main (int argc, char **argv)
                 recvpkt = (tcp_packet *)buffer;
                 printf("%d \n", get_data_size(recvpkt));
                 assert(get_data_size(recvpkt) <= DATA_SIZE);
-            }while(recvpkt->hdr.ackno < next_seqno);    //ignore duplicate ACKs
+            }while(recvpkt->hdr.ackno < expected_ack);    //ignore duplicate ACKs
             stop_timer();
             /*resend pack if don't recv ACK */
-        } while(recvpkt->hdr.ackno != next_seqno);      
+        } while(recvpkt->hdr.ackno >= expected_ack);      
 
-        free(sndpkt);
+        // remove received packets
+        sndpkt = get_head(&sliding_window);
+        // while sndpckt seq # less than ack, remove packet
+        while(sndpkt->hdr.seqno < recvpkt->hdr.ackno) {
+            remove_node(&sliding_window, 1);
+        }
     }
+
+    delete_list(&sliding_window);
 
     return 0;
 

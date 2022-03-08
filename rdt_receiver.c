@@ -111,18 +111,18 @@ int main(int argc, char **argv) {
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
-        /* Discard Received seqno greater than expected seqno */
-        //Task 2: implement out of order packages
-         if (recvpkt->hdr.seqno == expec_seqno){
+         if (recvpkt->hdr.seqno == expec_seqno){ //Seq
             fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
             fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
-            sendAckno = 1; //Send Acknoledgement
             expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
-	    }else if(recvpkt->hdr.seqno < expec_seqno){
+            sendAckno = 1; //Send Acknoledgement
+	    }
+        else if(recvpkt->hdr.seqno < expec_seqno){ //If it is less than it is a duplicate
             //Resend Acknowledgement 
             //Timestamp? 
-            sendAckno = 1; //Send Acknoledgement
-        } else if (recvpkt->hdr.seqno > expec_seqno){
+            sendAckno = 1; //Resend Acknoledgement
+        } 
+        else if (recvpkt->hdr.seqno > expec_seqno){
 	         //Discard for this assignment
             sendAckno = 0; //Do not Send Acknoledgement
 	    }
