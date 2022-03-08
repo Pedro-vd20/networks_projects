@@ -11,6 +11,7 @@
 
 #include "common.h"
 #include "packet.h"
+#include "linked_list.h"
 
 
 /*
@@ -21,6 +22,9 @@
  */
 tcp_packet *recvpkt;
 tcp_packet *sndpkt;
+// linked_list *packets;
+
+
 
 int main(int argc, char **argv) {
     int sockfd; /* socket */
@@ -32,6 +36,7 @@ int main(int argc, char **argv) {
     FILE *fp;
     char buffer[MSS_SIZE];
     struct timeval tp;
+    int expec_seqno = 0; 
 
     /* 
      * check command line arguments 
@@ -82,7 +87,7 @@ int main(int argc, char **argv) {
      * main loop: wait for a datagram, then echo it
      */
     VLOG(DEBUG, "epoch time, bytes received, sequence number");
-
+    int sendAckno = 1; 
     clientlen = sizeof(clientaddr);
     while (1) {
         /*
@@ -106,16 +111,32 @@ int main(int argc, char **argv) {
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
-        // Check seqNo before doing this!
-        fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
-        fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
-        sndpkt = make_packet(0);
-        sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
-        sndpkt->hdr.ctr_flags = ACK;
-        if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, 
-                (struct sockaddr *) &clientaddr, clientlen) < 0) {
-            error("ERROR in sendto");
+        /* Discard Received seqno greater than expected seqno */
+        //Task 2: implement out of order packages
+         if (recvpkt->hdr.seqno == expec_seqno){
+            fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
+            fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
+            sendAckno = 1; //Send Acknoledgement
+            expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+	    }else if(recvpkt->hdr.seqno < expec_seqno){
+            //Resend Acknowledgement 
+            //Timestamp? 
+            sendAckno = 1; //Send Acknoledgement
+        } else if (recvpkt->hdr.seqno > expec_seqno){
+	         //Discard for this assignment
+            sendAckno = 0; //Do not Send Acknoledgement
+	    }
+
+        if(sendAckno) {
+            sndpkt = make_packet(0);
+            sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+            sndpkt->hdr.ctr_flags = ACK;
+            //sndpkt
+            if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, (struct sockaddr *) &clientaddr, clientlen) < 0) {
+                error("ERROR in sendto");
+            }
         }
+        
     }
 
     return 0;
