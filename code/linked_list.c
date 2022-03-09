@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "linked_list.h"
 #include "packet.h"
@@ -55,4 +56,18 @@ int remove_node(linked_list* TCP_window, int num_nodes) {
         TCP_window->size--;
     }
     return 0;
+}
+
+
+// debug methods
+void print(linked_list* ls) {
+    printf("List with %d items\n", ls->size);
+
+    struct node* curr = ls->head;
+    for(int i = 0; i<ls->size; ++i) {
+        tcp_packet* pct = curr->p;
+        printf("Packet %d:\n\tSeqNo: %d\n\tLen: %d\n", i, pct->hdr.seqno, pct->hdr.data_size);
+
+        curr = curr->next;
+    }
 }

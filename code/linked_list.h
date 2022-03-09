@@ -23,5 +23,8 @@ int is_empty(linked_list*);
 // free all memory 
 int delete_list(linked_list*);
 
+// Debug methods
+void print(linked_list*);
+
 
 #endif

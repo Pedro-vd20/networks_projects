@@ -16,7 +16,7 @@
 #include "linked_list.h"
 
 #define STDIN_FD    0
-#define RETRY  120 //millisecond
+#define RETRY 120 //millisecond
 
 int next_seqno=0;
 int send_base=0;
@@ -29,7 +29,7 @@ tcp_packet *sndpkt;
 tcp_packet *recvpkt;
 sigset_t sigmask;       
 
-linked_list* sliding_window;
+linked_list sliding_window;
 
 void resend_packets(int sig)
 {
@@ -38,10 +38,16 @@ void resend_packets(int sig)
         //Resend all packets range between 
         //sendBase and nextSeqNum
         VLOG(INFO, "Timout happend");
-        if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                    ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-        {
-            error("sendto");
+        if(!is_empty(&sliding_window)) {
+            struct node* head = sliding_window.head;
+            while(head != NULL) {
+                if(sendto(sockfd, head->p, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
+                            ( const struct sockaddr *)&serveraddr, serverlen) < 0)
+                {
+                    error("sendto");
+                }
+                head = head->next;
+            }
         }
     }
 }
@@ -80,6 +86,7 @@ void init_timer(int delay, void (*sig_handler)(int))
 
 int main (int argc, char **argv)
 {
+    int eof_flag = 0;
     int portno, len;
     int next_seqno;
     char *hostname;
@@ -124,25 +131,24 @@ int main (int argc, char **argv)
 
     init_timer(RETRY, resend_packets);
     next_seqno = 0;
-    sliding_window = malloc(sizeof(linked_list));
-    sliding_window->size = 0;
+    sliding_window.size = 0;
     int expected_ack = 0;
-    int eof_flag = 0;
 
     while (1)
     {
-
-        while(sliding_window->size < 10) {
-            // read and send packet
+        // Send packets
+        // only if current window isn't 10 and the end of file hasn't been reached
+        while((!eof_flag) && (sliding_window.size < 10)) {
             len = fread(buffer, 1, DATA_SIZE, fp);
-            // check for end of file
-            if ( len <= 0)
-            {
+            // If lenght is 0, stop adding packets to sliding window
+            // Set end of file as true
+            if(len <= 0) {
+                // Set end of file flag and break
                 eof_flag = 1;
                 break;
             }
 
-            // build packet
+            // make packet
             send_base = next_seqno;
             next_seqno = send_base + len;
             sndpkt = make_packet(len);
@@ -150,8 +156,7 @@ int main (int argc, char **argv)
             sndpkt->hdr.seqno = send_base;
             
             // add packet to sliding window
-            add_node(sliding_window, sndpkt);
-
+            add_node(&sliding_window, sndpkt);
 
             VLOG(DEBUG, "Sending packet %d to %s", 
                     send_base, inet_ntoa(serveraddr.sin_addr));
@@ -165,22 +170,26 @@ int main (int argc, char **argv)
                         ( const struct sockaddr *)&serveraddr, serverlen) < 0)
             {
                 error("sendto");
-            }           
-        }
-        if(eof_flag && is_empty(sliding_window)) {
+            }
+        } 
+
+        // EOF reached
+        if(eof_flag && is_empty(&sliding_window)) {
+            // send eof packet
             VLOG(INFO, "End Of File has been reached");
             sndpkt = make_packet(0);
             sendto(sockfd, sndpkt, TCP_HDR_SIZE,  0,
                     (const struct sockaddr *)&serveraddr, serverlen);
+            add_node(&sliding_window, sndpkt);
             break;
         }
-
-        sndpkt = get_head(sliding_window);
+        
+        sndpkt = get_head(&sliding_window);
+        
         expected_ack = sndpkt->hdr.seqno + sndpkt->hdr.data_size;
                 
         //Wait for ACK
         do {
-
             start_timer();
             //ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
             //struct sockaddr *src_addr, socklen_t *addrlen);
@@ -188,7 +197,6 @@ int main (int argc, char **argv)
             // check for incoming packets
             do
             {
-                // get a packet
                 if(recvfrom(sockfd, buffer, MSS_SIZE, 0,
                             (struct sockaddr *) &serveraddr, (socklen_t *)&serverlen) < 0)
                 {
@@ -199,35 +207,39 @@ int main (int argc, char **argv)
                 printf("%d \n", get_data_size(recvpkt));
                 assert(get_data_size(recvpkt) <= DATA_SIZE);
 
-                // ignore old acks
+            
+
             } while(recvpkt->hdr.ackno < expected_ack);    //ignore duplicate ACKs
+
             stop_timer();
             /*resend pack if don't recv ACK */
 
-            // remove acked packages
-            sndpkt = get_head(sliding_window);
-            while(recvpkt->hdr.ackno > sndpkt->hdr.ackno) {
-                remove_node(sliding_window, 1);
-                if(!is_empty(sliding_window)) {
-                    sndpkt = get_head(sliding_window);
-                    expected_ack = sndpkt->hdr.seqno + sndpkt->hdr.data_size;
-                }
-                else {
-                    break;
-                }
-            }
+        } while(recvpkt->hdr.ackno < expected_ack);      
 
-
-            // run until eof
-        } while(recvpkt->hdr.ackno != next_seqno);      
+        sndpkt = get_head(&sliding_window);
+        // while sndpckt seq # less than ack, remove packet
+        while(sndpkt->hdr.seqno < recvpkt->hdr.ackno) {
+            remove_node(&sliding_window, 1);
+            if(is_empty(&sliding_window)) {
+                break;
+            }   
+            sndpkt = get_head(&sliding_window);
+        }
 
     }
 
-    delete_list(sliding_window);
-    free(sliding_window);
+
+    delete_list(&sliding_window);
     return 0;
 
 }
 
 
 
+// Notes:
+/* 
+
+Am I getting stuck in the loop to remove nodes?
+Check the "re-stocking" of packets for the sliding window
+
+*/
