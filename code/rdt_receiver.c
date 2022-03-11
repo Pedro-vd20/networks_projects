@@ -111,15 +111,13 @@ int main(int argc, char **argv) {
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
-         if (recvpkt->hdr.seqno == expec_seqno){ //Seq
-            fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
-            fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
-            expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+         if (recvpkt->hdr.seqno == expec_seqno){ //Expected package
+            fseek(fp, recvpkt->hdr.seqno, SEEK_SET); 
+            fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp); //write on file
+            expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size; //update the expected seqno
             sendAckno = 1; //Send Acknoledgement
 	    }
         else if(recvpkt->hdr.seqno < expec_seqno){ //If it is less than it is a duplicate
-            //Resend Acknowledgement 
-            //Timestamp? 
             sendAckno = 1; //Resend Acknoledgement
         } 
         else if (recvpkt->hdr.seqno > expec_seqno){
