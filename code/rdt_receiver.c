@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     FILE *fp;
     char buffer[MSS_SIZE];
     struct timeval tp;
-    int expec_seqno = 0; 
+    int expec_seqno = 0; //expected sequence number
 
     /* 
      * check command line arguments 
