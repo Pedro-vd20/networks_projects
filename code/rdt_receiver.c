@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 	         //Discard for this assignment
             sendAckno = 0; //Do not Send Acknoledgement
 	    }
-
+        //Send acknowledgement if there is a duplicate or we got the expected package
         if(sendAckno) {
             sndpkt = make_packet(0);
             sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
