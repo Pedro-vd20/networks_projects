@@ -138,7 +138,7 @@ int main (int argc, char **argv)
     {
         // Send packets
         // only if current window isn't 10 and the end of file hasn't been reached
-        while((!eof_flag) && (sliding_window.size < 10)) {
+        while((!eof_flag) && (sliding_window.size < window_size)) {
             len = fread(buffer, 1, DATA_SIZE, fp);
             // If lenght is 0, stop adding packets to sliding window
             // Set end of file as true
@@ -222,12 +222,11 @@ int main (int argc, char **argv)
             remove_node(&sliding_window, 1);
             if(is_empty(&sliding_window)) {
                 break;
-            }   
+            }
             sndpkt = get_head(&sliding_window);
         }
 
     }
-
 
     delete_list(&sliding_window);
     return 0;
