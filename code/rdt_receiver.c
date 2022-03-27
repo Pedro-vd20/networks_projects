@@ -172,7 +172,8 @@ int main(int argc, char **argv) {
         } 
         else if (recvpkt->hdr.seqno > expec_seqno){
             // printf("out of order \n");
-            write_to_file(fp);
+            // write_to_file(fp);
+            add_pkt_to_list();
             print(&packets);
             sendAckno = 0; //Do not Send Acknoledgement
 	    }
