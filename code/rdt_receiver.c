@@ -22,9 +22,57 @@
  */
 tcp_packet *recvpkt;
 tcp_packet *sndpkt;
-// linked_list *packets;
+linked_list packets;
+int expec_seqno = 0;
 
+void add_pkt_to_list(){
 
+    if(is_empty(&packets)){
+        add_node(&packets, recvpkt);
+        return;
+    }
+
+    if(recvpkt->hdr.seqno < packets.head->p->hdr.seqno){
+        struct node* newHead = malloc(sizeof(struct node));
+        newHead->p = recvpkt; 
+        newHead->prev = NULL;
+        newHead->next = packets.head;
+        packets.head = newHead;
+        return;
+    }
+
+    int isDuplicate = 0;
+    struct node* temp_pointer = packets.head;
+    while(temp_pointer->next != NULL && temp_pointer->next->p->hdr.seqno < recvpkt->hdr.seqno){
+        if(temp_pointer->p->hdr.seqno == recvpkt->hdr.seqno) isDuplicate = 1; 
+        temp_pointer = temp_pointer -> next;
+    }
+
+    if(isDuplicate == 0){
+        struct node* newNode = malloc(sizeof(struct node));
+        newNode -> p = recvpkt;
+        newNode -> prev = temp_pointer;
+        newNode -> next = temp_pointer -> next;
+        temp_pointer->next = newNode;
+        temp_pointer -> next -> prev = newNode;
+    } 
+        
+    return;
+}
+
+void write_to_file(FILE *fp){ 
+    while(!is_empty(&packets)) {
+        tcp_packet *head_pkt = get_head(&packets);
+        if(expec_seqno != head_pkt -> hdr.seqno) {
+            break;
+        }
+        fseek(fp, recvpkt->hdr.seqno, SEEK_SET); 
+        fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp); //write on file
+        expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size; //update the expected seqno
+        remove_node(&packets, 1);
+    }
+    return;
+}
 
 int main(int argc, char **argv) {
     int sockfd; /* socket */
@@ -36,7 +84,7 @@ int main(int argc, char **argv) {
     FILE *fp;
     char buffer[MSS_SIZE];
     struct timeval tp;
-    int expec_seqno = 0; //expected sequence number
+     //expected sequence number
 
     /* 
      * check command line arguments 
@@ -89,6 +137,7 @@ int main(int argc, char **argv) {
     VLOG(DEBUG, "epoch time, bytes received, sequence number");
     int sendAckno = 1; 
     clientlen = sizeof(clientaddr);
+    
     while (1) {
         /*
          * recvfrom: receive a UDP datagram from a client
@@ -112,29 +161,32 @@ int main(int argc, char **argv) {
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
          if (recvpkt->hdr.seqno == expec_seqno){ //Expected package
-            fseek(fp, recvpkt->hdr.seqno, SEEK_SET); 
-            fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp); //write on file
-            expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size; //update the expected seqno
+            //Add to LinkedList
+            add_pkt_to_list();
+            write_to_file(fp);
             sendAckno = 1; //Send Acknoledgement
 	    }
         else if(recvpkt->hdr.seqno < expec_seqno){ //If it is less than it is a duplicate
+            // printf("duplicate \n");
             sendAckno = 1; //Resend Acknoledgement
         } 
         else if (recvpkt->hdr.seqno > expec_seqno){
-	         //Discard for this assignment
+            // printf("out of order \n");
+            write_to_file(fp);
+            print(&packets);
             sendAckno = 0; //Do not Send Acknoledgement
 	    }
         //Send acknowledgement if there is a duplicate or we got the expected package
         if(sendAckno) {
             sndpkt = make_packet(0);
-            sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+            sndpkt->hdr.ackno =  expec_seqno;
             sndpkt->hdr.ctr_flags = ACK;
             if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, (struct sockaddr *) &clientaddr, clientlen) < 0) {
                 error("ERROR in sendto");
             }
-        }
-        
+        }    
     }
+    print(&packets);
 
     return 0;
 }
