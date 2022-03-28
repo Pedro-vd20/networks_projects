@@ -26,49 +26,83 @@ linked_list packets;
 int expec_seqno = 0;
 
 void add_pkt_to_list(){
+    tcp_packet* cpy_recvpkt = make_packet(recvpkt -> hdr.data_size);
+    memcpy(cpy_recvpkt->data, recvpkt->data, recvpkt->hdr.data_size);
+    cpy_recvpkt->hdr.ackno = recvpkt->hdr.ackno;
+    cpy_recvpkt->hdr.seqno = recvpkt->hdr.seqno;
 
     if(is_empty(&packets)){
-        add_node(&packets, recvpkt);
+        add_node(&packets, cpy_recvpkt);
         return;
     }
 
-    if(recvpkt->hdr.seqno < packets.head->p->hdr.seqno){
+    
+    if(cpy_recvpkt->hdr.seqno < packets.head->p->hdr.seqno){
+        
         struct node* newHead = malloc(sizeof(struct node));
-        newHead->p = recvpkt; 
+        newHead->p = cpy_recvpkt; 
         newHead->prev = NULL;
         newHead->next = packets.head;
         packets.head = newHead;
+        packets.size++;
+        return;
+    }
+    
+    
+    if(cpy_recvpkt->hdr.seqno > packets.tail->p->hdr.seqno){
+    
+        struct node* newTail = malloc(sizeof(struct node));
+        newTail->p = cpy_recvpkt;
+        newTail->prev = packets.tail;
+        packets.tail->next = newTail;
+        newTail->next = NULL;
+        packets.tail = newTail;
+        packets.size++;
         return;
     }
 
-    int isDuplicate = 0;
-    struct node* temp_pointer = packets.head;
-    while(temp_pointer->next != NULL && temp_pointer->next->p->hdr.seqno < recvpkt->hdr.seqno){
-        if(temp_pointer->p->hdr.seqno == recvpkt->hdr.seqno) isDuplicate = 1; 
-        temp_pointer = temp_pointer -> next;
-    }
+    struct node* prev_node = packets.head;
+    while(prev_node -> next !=NULL){
+        if(prev_node-> p ->hdr.seqno == cpy_recvpkt->hdr.seqno){
+            // printf("Found duplicate--------! \n");
+            // printf("already in %d \n", cpy_recvpkt->hdr.seqno);
+            // print(&packets);
+            break; 
+        }
+        else if(prev_node->next->p->hdr.seqno > cpy_recvpkt->hdr.seqno){
+            // printf("Insert middle!!!------------------ \n"); 
+            // printf("prev node: %d \n",prev_node-> p ->hdr.seqno);
+            // printf("recvfrom seqno: %d \n", cpy_recvpkt->hdr.seqno);
+            // printf("prev node -> next: %d \n",prev_node ->next -> p ->hdr.seqno);
+            
+            struct node* newNode = malloc(sizeof(struct node));
+            newNode -> p = cpy_recvpkt;
+            newNode -> prev = prev_node;
+            newNode -> next = prev_node -> next;
+            prev_node->next = newNode;
+            newNode -> next -> prev = newNode;
+            packets.size++;
 
-    if(isDuplicate == 0){
-        struct node* newNode = malloc(sizeof(struct node));
-        newNode -> p = recvpkt;
-        newNode -> prev = temp_pointer;
-        newNode -> next = temp_pointer -> next;
-        temp_pointer->next = newNode;
-        temp_pointer -> next -> prev = newNode;
-    } 
+            // print(&packets);
+            break;
+        }
+        prev_node = prev_node -> next;
+    }
         
     return;
 }
 
 void write_to_file(FILE *fp){ 
+
     while(!is_empty(&packets)) {
         tcp_packet *head_pkt = get_head(&packets);
         if(expec_seqno != head_pkt -> hdr.seqno) {
             break;
         }
-        fseek(fp, recvpkt->hdr.seqno, SEEK_SET); 
-        fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp); //write on file
-        expec_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size; //update the expected seqno
+        fseek(fp, head_pkt->hdr.seqno, SEEK_SET); 
+        fwrite(head_pkt->data, 1, recvpkt->hdr.data_size, fp); //write on file
+        // printf("Wirte on file: %d \n", head_pkt->hdr.seqno);
+        expec_seqno = head_pkt->hdr.seqno + head_pkt->hdr.data_size; //update the expected seqno
         remove_node(&packets, 1);
     }
     return;
@@ -159,7 +193,7 @@ int main(int argc, char **argv) {
          */
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
-
+        
          if (recvpkt->hdr.seqno == expec_seqno){ //Expected package
             //Add to LinkedList
             add_pkt_to_list();
@@ -174,7 +208,7 @@ int main(int argc, char **argv) {
             // printf("out of order \n");
             // write_to_file(fp);
             add_pkt_to_list();
-            print(&packets);
+            // print(&packets);
             sendAckno = 0; //Do not Send Acknoledgement
 	    }
         //Send acknowledgement if there is a duplicate or we got the expected package
@@ -187,6 +221,8 @@ int main(int argc, char **argv) {
             }
         }    
     }
+    printf("packets size %d \n",packets.size);
+    remove_node(&packets, packets.size);
     print(&packets);
 
     return 0;
