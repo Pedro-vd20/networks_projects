@@ -198,6 +198,7 @@ int main(int argc, char **argv)
                 printf("AckNo: %d \n", recvpkt->hdr.ackno);
                 assert(get_data_size(recvpkt) <= DATA_SIZE);
 
+                // check for fast retransmit
                 if(1 < 0 && recvpkt->hdr.ackno == sliding_window.head->p->hdr.seqno) {
                     if(++ctr >= 3) {
                         stop_timer();
@@ -222,7 +223,7 @@ int main(int argc, char **argv)
         // while sndpckt seq # less than ack, remove packet
         while (sndpkt->hdr.seqno < recvpkt->hdr.ackno)
         {
-            // update rtt
+            // update rtt if packet hasn't been resent
             if (!sliding_window.head->is_resend)
             {
                 gettimeofday(&t1, 0);
@@ -237,16 +238,21 @@ int main(int argc, char **argv)
                 init_timer(rto, resend_packets);
             }
 
+
             remove_node(&sliding_window, 1);
+            
+            // slow start
             if (window_size < ssthresh)
             {
                 window_size++;
             }
+            // congestion avoidance
             else
             {
                 window_size += (1.0f / (int)(window_size));
             }
 
+            // write into csv
             gettimeofday(&t1, 0);
             fprintf(csv, "%f,%d\n", timedifference_msec(t1, time_init), (int)window_size);
 
@@ -274,6 +280,7 @@ void resend_packets(int sig)
         ssthresh = window_size > 3 ? (window_size / 2) : 2;
         window_size = 1;
 
+        // plot new window size
         struct timeval t1;
         gettimeofday(&t1, 0);
         fprintf(csv, "%f,%d\n", timedifference_msec(t1, time_init), (int)window_size);
