@@ -24,6 +24,8 @@ int add_node(linked_list* ls, tcp_packet* packet) {
     ls->tail->is_resend = 0;
     (ls->size)++;
 
+    gettimeofday(&(ls->tail->time_sent), 0);
+
     return 0;
 }
 

@@ -1,6 +1,7 @@
 #ifndef LINKED_LIST
 #define LINKED_LIST
 
+#include <sys/time.h>
 #include <time.h>
 #include "packet.h"
 
@@ -8,7 +9,7 @@ struct node {
     tcp_packet* p;
     struct node* next;   
     struct node* prev; 
-    double time_sent;
+    struct timeval time_sent;
     int is_resend;
 };
 

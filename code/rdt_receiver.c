@@ -226,7 +226,7 @@ void write_to_file(FILE *fp){
         }
         //Write to file
         fseek(fp, head_pkt->hdr.seqno, SEEK_SET); 
-        fwrite(head_pkt->data, 1, recvpkt->hdr.data_size, fp); 
+        fwrite(head_pkt->data, 1, head_pkt->hdr.data_size, fp); 
         //update the expec_seqno
         expec_seqno = head_pkt->hdr.seqno + head_pkt->hdr.data_size; //update the expected seqno
         //remove the head

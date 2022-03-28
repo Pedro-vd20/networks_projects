@@ -17,3 +17,5 @@ plot = df.plot(x="Time", y="CWND", figsize = (50,20), xlabel="Time", ylabel="CWN
                 fontsize = 25, title ="Time vs CWND" )
 
 plot.get_figure().savefig('CWND.pdf', format='pdf')
+
+plt.show()
