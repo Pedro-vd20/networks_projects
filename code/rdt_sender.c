@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <assert.h>
+#include <math.h>
 
 #include"packet.h"
 #include"common.h"
@@ -18,9 +19,18 @@
 #define STDIN_FD    0
 #define RETRY 120 //millisecond
 
+double rtt = RETRY;
+double rtt_dev = 0;
+double alpha = 0.125;
+double beta = 0.25;
+
+float rto;
+
 int next_seqno=0;
 int send_base=0;
-int window_size = 10;
+float window_size = 1;
+int ssthresh = 64;
+int expected_ack = 0;
 
 int sockfd, serverlen;
 struct sockaddr_in serveraddr;
@@ -31,58 +41,11 @@ sigset_t sigmask;
 
 linked_list sliding_window;
 
-void resend_packets(int sig)
-{
-    if (sig == SIGALRM)
-    {
-        //Resend all packets range between 
-        //sendBase and nextSeqNum
-        VLOG(INFO, "Timout happend");
-        if(!is_empty(&sliding_window)) {
-            struct node* head = sliding_window.head;
-            while(head != NULL) {
-                if(sendto(sockfd, head->p, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                            ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-                {
-                    error("sendto");
-                }
-                head = head->next;
-            }
-        }
-    }
-}
 
-
-void start_timer()
-{
-    sigprocmask(SIG_UNBLOCK, &sigmask, NULL);
-    setitimer(ITIMER_REAL, &timer, NULL);
-}
-
-
-void stop_timer()
-{
-    sigprocmask(SIG_BLOCK, &sigmask, NULL);
-}
-
-
-/*
- * init_timer: Initialize timer
- * delay: delay in milliseconds
- * sig_handler: signal handler function for re-sending unACKed packets
- */
-void init_timer(int delay, void (*sig_handler)(int)) 
-{
-    signal(SIGALRM, resend_packets);
-    timer.it_interval.tv_sec = delay / 1000;    // sets an interval of the timer
-    timer.it_interval.tv_usec = (delay % 1000) * 1000;  
-    timer.it_value.tv_sec = delay / 1000;       // sets an initial value
-    timer.it_value.tv_usec = (delay % 1000) * 1000;
-
-    sigemptyset(&sigmask);
-    sigaddset(&sigmask, SIGALRM);
-}
-
+void resend_packets(int);
+void start_timer();
+void stop_timer();
+void init_timer(int, void (int));
 
 int main (int argc, char **argv)
 {
@@ -92,6 +55,8 @@ int main (int argc, char **argv)
     char *hostname;
     char buffer[DATA_SIZE];
     FILE *fp;
+
+    rto = rtt + 4 * rtt_dev;
 
     /* check command line arguments */
     if (argc != 4) {
@@ -127,12 +92,9 @@ int main (int argc, char **argv)
 
     assert(MSS_SIZE - TCP_HDR_SIZE > 0);
 
-    //Stop and wait protocol
-
-    init_timer(RETRY, resend_packets);
+    init_timer(rto, resend_packets);
     next_seqno = 0;
     sliding_window.size = 0;
-    int expected_ack = 0;
 
     while (1)
     {
@@ -158,20 +120,9 @@ int main (int argc, char **argv)
             // add packet to sliding window
             add_node(&sliding_window, sndpkt);
 
-            VLOG(DEBUG, "Sending packet %d to %s", 
-                    send_base, inet_ntoa(serveraddr.sin_addr));
-            /*
-             * If the sendto is called for the first time, the system will
-             * will assign a random port number so that server can send its
-             * response to the src port.
-             */
-            // send packet
-            if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                        ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-            {
-                error("sendto");
-            }
         } 
+
+        send_packets(&sliding_window, window_size, 0);
 
         // EOF reached
         if(eof_flag && is_empty(&sliding_window)) {
@@ -219,7 +170,24 @@ int main (int argc, char **argv)
         sndpkt = get_head(&sliding_window);
         // while sndpckt seq # less than ack, remove packet
         while(sndpkt->hdr.seqno < recvpkt->hdr.ackno) {
+            // update rtt
+            if(!sliding_window.head->is_resend) {
+                double rtt_sample = ((clock() - sliding_window.head->time_sent) * 1000.0) / CLOCKS_PER_SEC;
+                rtt_dev = (1 - beta) * rtt_dev + beta * fabs(rtt_sample - rtt);
+                rtt = (1- alpha) * rtt + alpha * rtt_sample;
+
+                rto = rtt + 4 * rtt_dev;
+                // init_timer(rto, resend_packets);
+            }
+            
             remove_node(&sliding_window, 1);
+            if(window_size < ssthresh) { 
+                window_size++;
+            }
+            else {
+                window_size += (1.0 / (int) (window_size));
+            }
+            
             if(is_empty(&sliding_window)) {
                 break;
             }
@@ -234,11 +202,89 @@ int main (int argc, char **argv)
 }
 
 
+void resend_packets(int sig)
+{
+    if (sig == SIGALRM)
+    {
+        VLOG(INFO, "Timeout happened");
+        // reset ssthresh and window size
+        ssthresh = window_size > 3 ? (window_size / 2) : 2;
+        window_size = 1;
 
-// Notes:
-/* 
+        if(!is_empty(&sliding_window)) {
+            // send 1 packet
+            send_packets(&sliding_window, window_size, 1);
+        }
+        
+    }
+}
 
-Am I getting stuck in the loop to remove nodes?
-Check the "re-stocking" of packets for the sliding window
+void start_timer()
+{
+    sigprocmask(SIG_UNBLOCK, &sigmask, NULL);
+    setitimer(ITIMER_REAL, &timer, NULL);
+}
 
-*/
+void stop_timer()
+{
+    sigprocmask(SIG_BLOCK, &sigmask, NULL);
+}
+
+/*
+ * init_timer: Initialize timer
+ * delay: delay in milliseconds
+ * sig_handler: signal handler function for re-sending unACKed packets
+ */
+void init_timer(int delay, void (*sig_handler)(int)) 
+{
+    signal(SIGALRM, resend_packets);
+    timer.it_interval.tv_sec = delay / 1000;    // sets an interval of the timer
+    timer.it_interval.tv_usec = (delay % 1000) * 1000;  
+    timer.it_value.tv_sec = delay / 1000;       // sets an initial value
+    timer.it_value.tv_usec = (delay % 1000) * 1000;
+
+    sigemptyset(&sigmask);
+    sigaddset(&sigmask, SIGALRM);
+}
+
+/**
+ * @brief sends x number of packets stored in linked list
+ * 
+ * @param ls linked list containing packets
+ * @param num number of packets to send
+ * @return int 0 if success, -1 if error
+ */
+int send_packets(linked_list* ls, int num, int resend_flag) {
+    if(ls->size < num) {
+        return -1;
+    }
+
+    struct node* curr = ls->head;
+    for(int i = 0; i < num; ++i) {
+        VLOG(DEBUG, "Sending packet %d to %s", 
+                    curr->p->hdr.seqno, inet_ntoa(serveraddr.sin_addr));
+        /*
+         * If the sendto is called for the first time, the system will
+         * will assign a random port number so that server can send its
+         * response to the src port.
+         */
+        tcp_packet* packet = curr->p;
+        // send packet
+        if(sendto(sockfd, packet, TCP_HDR_SIZE + get_data_size(packet), 0, 
+                    ( const struct sockaddr *)&serveraddr, serverlen) < 0)
+        {
+            error("sendto");
+        }
+        
+        if(resend_flag) {
+            curr->is_resend = 1;
+        }
+        else {
+            curr->time_sent = clock();
+        }
+
+        curr = curr->next;
+    }    
+
+    return 0;
+}

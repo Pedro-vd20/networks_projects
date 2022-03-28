@@ -1,12 +1,15 @@
 #ifndef LINKED_LIST
 #define LINKED_LIST
 
+#include <time.h>
 #include "packet.h"
 
 struct node {
     tcp_packet* p;
     struct node* next;   
     struct node* prev; 
+    clock_t time_sent;
+    int is_resend;
 };
 
 typedef struct {
@@ -25,6 +28,8 @@ int remove_back(linked_list*, int);
 int is_empty(linked_list*);
 // free all memory 
 int delete_list(linked_list*);
+// send packets
+int send_packets(linked_list*, int, int);
 
 // Debug methods
 void print(linked_list*);

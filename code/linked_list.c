@@ -21,6 +21,7 @@ int add_node(linked_list* ls, tcp_packet* packet) {
         ls->tail = newNode;
     }
     ls->tail->next = NULL;
+    ls->tail->is_resend = 0;
     (ls->size)++;
 
     return 0;
