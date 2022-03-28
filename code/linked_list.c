@@ -55,7 +55,7 @@ int remove_node(linked_list* TCP_window, int num_nodes) {
         }
         struct node *temp_pointer = TCP_window->head;
         TCP_window->head = temp_pointer->next;
-        // free(temp_pointer->p);
+        // free(temp_pointer->p); //Commented to run rdt_receiver 
         free(temp_pointer);
         TCP_window->size--;
         if(!is_empty(TCP_window)) {
