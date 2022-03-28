@@ -8,7 +8,7 @@ struct node {
     tcp_packet* p;
     struct node* next;   
     struct node* prev; 
-    clock_t time_sent;
+    double time_sent;
     int is_resend;
 };
 

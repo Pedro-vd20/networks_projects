@@ -26,6 +26,9 @@ double beta = 0.25;
 
 float rto;
 
+FILE* csv;
+double time_init;
+
 int next_seqno=0;
 int send_base=0;
 float window_size = 1;
@@ -96,6 +99,16 @@ int main (int argc, char **argv)
     next_seqno = 0;
     sliding_window.size = 0;
 
+    // set up csv file for plotting
+    csv = fopen("../cwnd.csv", "w");
+    if(csv == NULL) {
+        printf("Error opening csv\n");
+        return 1;
+    }
+    // start timer
+    time_init = 1000.0 * clock() / CLOCKS_PER_SEC;
+    fprintf(csv, "%f,%d\n", time_init, (int)window_size);
+    
     while (1)
     {
         // Send packets
@@ -172,11 +185,14 @@ int main (int argc, char **argv)
         while(sndpkt->hdr.seqno < recvpkt->hdr.ackno) {
             // update rtt
             if(!sliding_window.head->is_resend) {
-                double rtt_sample = ((clock() - sliding_window.head->time_sent) * 1000.0) / CLOCKS_PER_SEC;
+                double curr_time = 1000.0 * (double) clock() / CLOCKS_PER_SEC;
+                double rtt_sample = curr_time - sliding_window.head->time_sent;
+                printf("Sample rtt ======== %f\n", rtt_sample);
                 rtt_dev = (1 - beta) * rtt_dev + beta * fabs(rtt_sample - rtt);
                 rtt = (1- alpha) * rtt + alpha * rtt_sample;
 
                 rto = rtt + 4 * rtt_dev;
+                printf("Estimated rtt ======== %f\n", rto);
                 // init_timer(rto, resend_packets);
             }
             
@@ -188,6 +204,10 @@ int main (int argc, char **argv)
                 window_size += (1.0 / (int) (window_size));
             }
             
+            double curr_timme = 1000.0 * clock() / CLOCKS_PER_SEC;
+            fprintf(csv, "%f,%d\n", curr_timme - time_init, (int)window_size);
+
+
             if(is_empty(&sliding_window)) {
                 break;
             }
@@ -197,6 +217,7 @@ int main (int argc, char **argv)
     }
 
     delete_list(&sliding_window);
+    fclose(csv);
     return 0;
 
 }
@@ -210,6 +231,9 @@ void resend_packets(int sig)
         // reset ssthresh and window size
         ssthresh = window_size > 3 ? (window_size / 2) : 2;
         window_size = 1;
+        
+        double time_now = 1000.0 * clock() / CLOCKS_PER_SEC;
+        fprintf(csv, "%f,%d\n", time_now - time_init, (int)window_size);
 
         if(!is_empty(&sliding_window)) {
             // send 1 packet
@@ -280,7 +304,7 @@ int send_packets(linked_list* ls, int num, int resend_flag) {
             curr->is_resend = 1;
         }
         else {
-            curr->time_sent = clock();
+            curr->time_sent = 1000.0 * (double) clock() / CLOCKS_PER_SEC;
         }
 
         curr = curr->next;
