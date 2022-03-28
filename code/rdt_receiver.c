@@ -20,93 +20,18 @@
  * In the current implementation the window size is one, hence we have
  * only one send and receive packet
  */
+
+
+//Function to add_packages to the linked list
+void add_pkt_to_list();
+
+//Function to transverse to linked list and write to file the expected packets
+void write_to_file(FILE *fp);
+
 tcp_packet *recvpkt;
 tcp_packet *sndpkt;
 linked_list packets;
 int expec_seqno = 0;
-
-void add_pkt_to_list(){
-    tcp_packet* cpy_recvpkt = make_packet(recvpkt -> hdr.data_size);
-    memcpy(cpy_recvpkt->data, recvpkt->data, recvpkt->hdr.data_size);
-    cpy_recvpkt->hdr.ackno = recvpkt->hdr.ackno;
-    cpy_recvpkt->hdr.seqno = recvpkt->hdr.seqno;
-
-    if(is_empty(&packets)){
-        add_node(&packets, cpy_recvpkt);
-        return;
-    }
-
-    
-    if(cpy_recvpkt->hdr.seqno < packets.head->p->hdr.seqno){
-        
-        struct node* newHead = malloc(sizeof(struct node));
-        newHead->p = cpy_recvpkt; 
-        newHead->prev = NULL;
-        newHead->next = packets.head;
-        packets.head = newHead;
-        packets.size++;
-        return;
-    }
-    
-    
-    if(cpy_recvpkt->hdr.seqno > packets.tail->p->hdr.seqno){
-    
-        struct node* newTail = malloc(sizeof(struct node));
-        newTail->p = cpy_recvpkt;
-        newTail->prev = packets.tail;
-        packets.tail->next = newTail;
-        newTail->next = NULL;
-        packets.tail = newTail;
-        packets.size++;
-        return;
-    }
-
-    struct node* prev_node = packets.head;
-    while(prev_node -> next !=NULL){
-        if(prev_node-> p ->hdr.seqno == cpy_recvpkt->hdr.seqno){
-            // printf("Found duplicate--------! \n");
-            // printf("already in %d \n", cpy_recvpkt->hdr.seqno);
-            // print(&packets);
-            break; 
-        }
-        else if(prev_node->next->p->hdr.seqno > cpy_recvpkt->hdr.seqno){
-            // printf("Insert middle!!!------------------ \n"); 
-            // printf("prev node: %d \n",prev_node-> p ->hdr.seqno);
-            // printf("recvfrom seqno: %d \n", cpy_recvpkt->hdr.seqno);
-            // printf("prev node -> next: %d \n",prev_node ->next -> p ->hdr.seqno);
-            
-            struct node* newNode = malloc(sizeof(struct node));
-            newNode -> p = cpy_recvpkt;
-            newNode -> prev = prev_node;
-            newNode -> next = prev_node -> next;
-            prev_node->next = newNode;
-            newNode -> next -> prev = newNode;
-            packets.size++;
-
-            // print(&packets);
-            break;
-        }
-        prev_node = prev_node -> next;
-    }
-        
-    return;
-}
-
-void write_to_file(FILE *fp){ 
-
-    while(!is_empty(&packets)) {
-        tcp_packet *head_pkt = get_head(&packets);
-        if(expec_seqno != head_pkt -> hdr.seqno) {
-            break;
-        }
-        fseek(fp, head_pkt->hdr.seqno, SEEK_SET); 
-        fwrite(head_pkt->data, 1, recvpkt->hdr.data_size, fp); //write on file
-        // printf("Wirte on file: %d \n", head_pkt->hdr.seqno);
-        expec_seqno = head_pkt->hdr.seqno + head_pkt->hdr.data_size; //update the expected seqno
-        remove_node(&packets, 1);
-    }
-    return;
-}
 
 int main(int argc, char **argv) {
     int sockfd; /* socket */
@@ -194,21 +119,16 @@ int main(int argc, char **argv) {
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
         
-         if (recvpkt->hdr.seqno == expec_seqno){ //Expected package
-            //Add to LinkedList
+         if (recvpkt->hdr.seqno == expec_seqno){ //Expected packa
             add_pkt_to_list();
             write_to_file(fp);
             sendAckno = 1; //Send Acknoledgement
 	    }
         else if(recvpkt->hdr.seqno < expec_seqno){ //If it is less than it is a duplicate
-            // printf("duplicate \n");
             sendAckno = 1; //Resend Acknoledgement
         } 
         else if (recvpkt->hdr.seqno > expec_seqno){
-            // printf("out of order \n");
-            // write_to_file(fp);
             add_pkt_to_list();
-            // print(&packets);
             sendAckno = 0; //Do not Send Acknoledgement
 	    }
         //Send acknowledgement if there is a duplicate or we got the expected package
@@ -226,4 +146,91 @@ int main(int argc, char **argv) {
     print(&packets);
 
     return 0;
+}
+
+//Function to add_packages to the linked list
+void add_pkt_to_list(){
+    //Make a deep copy of recpkt because recpkt does not do malloc
+    tcp_packet* cpy_recvpkt = make_packet(recvpkt -> hdr.data_size);
+    memcpy(cpy_recvpkt->data, recvpkt->data, recvpkt->hdr.data_size);
+    cpy_recvpkt->hdr.ackno = recvpkt->hdr.ackno;
+    cpy_recvpkt->hdr.seqno = recvpkt->hdr.seqno;
+
+    //If the the linked list is empty used add_node from linked_list.h function
+    if(is_empty(&packets)){
+        add_node(&packets, cpy_recvpkt);
+        return;
+    }
+
+    //If the receive packet is less than the head, update head
+    
+    if(cpy_recvpkt->hdr.seqno < packets.head->p->hdr.seqno){
+        struct node* newHead = malloc(sizeof(struct node));
+        newHead->p = cpy_recvpkt; 
+        newHead->prev = NULL;
+        newHead->next = packets.head;
+        packets.head = newHead;
+        packets.size++;
+        return;
+    }
+    
+    //If recvpkt seqno larger than tail, then append to linked list
+    if(cpy_recvpkt->hdr.seqno > packets.tail->p->hdr.seqno){
+    
+        struct node* newTail = malloc(sizeof(struct node));
+        newTail->p = cpy_recvpkt;
+        newTail->prev = packets.tail;
+        packets.tail->next = newTail;
+        newTail->next = NULL;
+        packets.tail = newTail;
+        packets.size++;
+        return;
+    }
+
+
+    struct node* prev_node = packets.head; //Pointer to tranverse linked list
+    
+    while(prev_node -> next !=NULL){
+        //If there is duplicate do not add packet to linked_list
+        if(prev_node-> p ->hdr.seqno == cpy_recvpkt->hdr.seqno){
+            break; 
+        }
+        //If the next packet is larger, then insert new node in that position
+        else if(prev_node->next->p->hdr.seqno > cpy_recvpkt->hdr.seqno){
+            
+            struct node* newNode = malloc(sizeof(struct node));
+            newNode -> p = cpy_recvpkt;
+            newNode -> prev = prev_node;
+            newNode -> next = prev_node -> next;
+            prev_node->next = newNode;
+            newNode -> next -> prev = newNode;
+            packets.size++;
+
+            // print(&packets);
+            break;
+        }
+        prev_node = prev_node -> next;
+    }
+        
+    return;
+}
+
+//Function to transverse to linked list and write to file the expected packets
+void write_to_file(FILE *fp){ 
+
+    while(!is_empty(&packets)) {
+        tcp_packet *head_pkt = get_head(&packets); //get head 
+        //If head seqno does not match expecno then break and do nothing
+        if(expec_seqno != head_pkt -> hdr.seqno) {
+            break;
+        }
+        //Write to file
+        fseek(fp, head_pkt->hdr.seqno, SEEK_SET); 
+        fwrite(head_pkt->data, 1, recvpkt->hdr.data_size, fp); 
+        //update the expec_seqno
+        expec_seqno = head_pkt->hdr.seqno + head_pkt->hdr.data_size; //update the expected seqno
+        //remove the head
+        remove_node(&packets, 1);
+    }
+    return;
 }
