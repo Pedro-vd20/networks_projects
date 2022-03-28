@@ -61,6 +61,10 @@ int main (int argc, char **argv)
 
     rto = rtt + 4 * rtt_dev;
 
+    // fast retransmit
+    int ctr = 0;
+
+
     /* check command line arguments */
     if (argc != 4) {
         fprintf(stderr,"usage: %s <hostname> <port> <FILE>\n", argv[0]);
@@ -171,10 +175,20 @@ int main (int argc, char **argv)
                 printf("%d \n", get_data_size(recvpkt));
                 assert(get_data_size(recvpkt) <= DATA_SIZE);
 
-            
+                if(recvpkt->hdr.ackno == sliding_window.head->p->hdr.seqno) {
+                    ctr++;
+                    if(ctr >= 3) {
+                        resend_packets(SIGALRM);    // resend packet and reset sliding window
+                        // reset timer
+                        stop_timer();
+                        start_timer();
+                        continue;
+                    }
+                }            
 
             } while(recvpkt->hdr.ackno < expected_ack);    //ignore duplicate ACKs
 
+            ctr = 0;
             stop_timer();
             /*resend pack if don't recv ACK */
 
