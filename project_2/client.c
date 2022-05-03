@@ -95,9 +95,8 @@ int main(int argc, char **argv)
     {
         char input[50];
         fgets(input, 50, stdin);
-        // gets(input);
 
-        if (strcmp(input, "QUIT")) // Temporal for testing
+        if (strcmp(input, "QUIT") == 0) // Temporal for testing
             break;
 
         char data[40] = "1234567"; // Pointer for getting the filename/username/password
@@ -148,6 +147,9 @@ int main(int argc, char **argv)
             break;
         }
     } // End of while loop
+
+    close(sockfd);
+
     // User I
     /*
         Bind stuff

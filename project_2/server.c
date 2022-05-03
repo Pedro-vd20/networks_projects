@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 
 #include "user.h"
+#include "commands.h"
 #include "threading.h"
 
 /**
@@ -17,13 +18,17 @@
  */
 void* handle_user(void*);
 
-int main(int argc, char **argv) {
-    /* socket: create the socket */
+int main() {
+    // printf("Hello\n");
+    
+    // socket: create the socket 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
         perror("ERROR opening socket");
         return -1;
     }
+
+    // printf("Here\n");
 
     if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
         perror("");
@@ -41,6 +46,8 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+    // printf("Here 1\n");
+
 	// listen on port
 	if(listen(sockfd,5)<0) {
 		perror("Listen Error:");
@@ -56,7 +63,7 @@ int main(int argc, char **argv) {
 
     while(1) {
         // accept new connection from client
-		int client_len=sizeof(client_address);	//lent of client cliend address of type sockaddr_in
+		int client_len = sizeof(client_address);	//lent of client cliend address of type sockaddr_in
 		int client_sd = accept(sockfd,(struct sockaddr*)&client_address,(socklen_t *)&client_len);	//accept the connection but also fill the client address with client info
 		if(client_sd<1)
 		{
@@ -76,20 +83,54 @@ int main(int argc, char **argv) {
 		}
 
 		// close threads that finish running
-		// join_thread(thread_ids, busy, 10);
+		join_thread(thread_ids, busy, 10);
 	
     }
 
-    close(sockfd);
+    // close(sockfd);
     return 0;
 }
 
 void* handle_user(void* arg) {
+    // SERVER IS SUPPOSED TO SEND A 220 FIRST!!!!!!
+    
     // collect client info
     client* user = (client*) arg;
+    int usersd = user->socket;
+    struct sockaddr_in* user_addr = &(user->address);
 
-    printf("Connection from: %d\n", user->socket);
+    // authenticate user
+    int auth = 0;
+    char username[50];
+    char password[50];
+    bzero(username, sizeof(username));
+    bzero(password, sizeof(password));
+
+
+    char buffer[256]; // stores received message
+    char fname[256]; // stores argument in message 
+    // listen for messages
+    while(1) {
+        bzero(buffer, sizeof(buffer));
+        bzero(fname, sizeof(fname)); 
+
+        // receive command from user
+        int bytes = recv(usersd, buffer, sizeof(buffer), 0);
+        if(bytes == 0) {
+            close(usersd);
+            printf("Closed!\n");
+            break;
+        }
+
+    
+        int command = parse_command(buffer, fname);
+        printf("%d\n", command);
+
+    }
 }
+
+
+
 // int main() {
 
     /*
