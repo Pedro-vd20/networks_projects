@@ -94,7 +94,8 @@ int main(int argc, char **argv)
     while (1)
     {
         char input[50];
-        gets(input);
+        fgets(input, 50, stdin);
+        // gets(input);
 
         if (strcmp(input, "QUIT")) // Temporal for testing
             break;
