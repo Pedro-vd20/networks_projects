@@ -13,13 +13,13 @@
 
 /*
 Testing:
-    1. Correct authentication 
+    1. Correct authentication
     2. Get file
         2.1 Correct port 20 stuff
         2.2 Correct multi-multi threading
         2.3 Correct merging of threads
         2.4 Correct sending of file
-    3. Store file 
+    3. Store file
         (should work similar to get file)
     4. List files
         4.1 Client
@@ -33,9 +33,72 @@ Testing:
 
 */
 
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <stdlib.h>
 
+int main(int argc, char **argv)
+{
 
-int main() {
+    // if (argc != 3)
+    // {
+    //     fprintf(stderr, "usage: %s <IP Address> <Port> \n", argv[0]);
+    //     exit(1);
+    // }
+
+    // Declare and verify socket file descriptor
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+    {
+        perror("Socket Error!");
+        exit(1);
+    }
+
+    // Control connection to the server to port 21 and local host;
+    struct sockaddr_in server_address;
+    memset(&server_address, 0, sizeof(server_address));
+    server_address.sin_family = AF_INET;
+    inet_aton("127.0.0.1", &server_address.sin_addr);
+    server_address.sin_port = htons(2021);
+
+    if (connect(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
+    {
+        perror("connection error");
+        return -1;
+    }
+    // User Interface
+    printf("control socket connected!");
+    // menu
+    printf("\n");
+    printf("Hello!! Please Authenticate first  \n");
+    printf("1. send \"USER\" followed by a space and your username \n");
+    printf("2. send \"PASS\" followed by a space and your password \n");
+    printf("\n");
+    printf("Once Authenticated \n");
+    printf("this is the list of commands : \n");
+    printf("\"STOR\" to send a file to the server \n");
+    printf("\"RETR\" to download a file from the server \n");
+    printf("\"LIST\" to  to list all the files under the current server directory \n");
+    printf("\"CWD\"  to change the current server directory \n");
+    printf("\"PWD\" to display the current server directory \n");
+
+    printf("Add \"!\" before the last three commands to apply them locally \n");
+
+    int isAuthenticated = 0;
+
+    while (1)
+    {
+        char input[50];
+        gets(input);
+        printf("input: %s", input);
+        break;
+    }
+    // User I
     /*
         Bind stuff
 
@@ -58,7 +121,7 @@ int main() {
             IF FILE TRANSFER REQUEST
 
                 Start thread
-                
+
                 Send server new random port
 
                 Listen on that port for server (listen for port 20)
