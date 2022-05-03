@@ -76,8 +76,8 @@ int main(int argc, char **argv)
     // menu
     printf("\n");
     printf("Hello!! Please Authenticate first  \n");
-    printf("1. send \"USER\" followed by a space and your username \n");
-    printf("2. send \"PASS\" followed by a space and your password \n");
+    printf("1. type \"USER\" followed by a space and your username \n");
+    printf("2. type \"PASS\" followed by a space and your password \n");
     printf("\n");
     printf("Once Authenticated \n");
     printf("this is the list of commands : \n");
@@ -95,9 +95,53 @@ int main(int argc, char **argv)
     {
         char input[50];
         gets(input);
-        printf("input: %s", input);
-        break;
-    }
+
+        if (strcmp(input, "QUIT")) // Temporal for testing
+            break;
+
+        char data[40] = "1234567"; // Pointer for getting the filename/username/password
+        // CommandValidator(input, data)
+
+        int code = 1;
+        char response[100];
+
+        if (code == 1 && strlen(data) > 0)
+        {
+            send(sockfd, input, sizeof(input), 0);
+            if (recv(sockfd, response, sizeof(response), 0) < 0)
+            {
+                perror("recv error!!");
+                break;
+            }
+            printf("%s\n", response);
+        }
+        else if (code == 2 && strlen(data) > 0)
+        {
+            send(sockfd, input, sizeof(input), 0);
+            if (recv(sockfd, response, sizeof(response), 0) < 0)
+            {
+                perror("recv error!!");
+                break;
+            }
+            printf("%s\n", response);
+            if (strcmp(response, "230") == 0)
+            {
+                printf("230 User logged in, proceed.");
+                isAuthenticated = 1;
+            }
+            else if (strcmp(response, "530"))
+            {
+                printf("530 Not logged in.");
+                break;
+            }
+        }
+        else if (isAuthenticated)
+        {
+            printf("I got authenticated!!");
+        }
+
+        code++; // Temporal for testing purposes
+    }           // End of while loop
     // User I
     /*
         Bind stuff
