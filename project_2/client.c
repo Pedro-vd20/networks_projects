@@ -131,17 +131,22 @@ int main(int argc, char **argv)
             }
             else if (strcmp(response, "530"))
             {
-                printf("530 Not logged in.");
+                printf("530 Not logged in. \n");
                 break;
             }
         }
         else if (isAuthenticated)
         {
-            printf("I got authenticated!!");
+            printf("I got authenticated!! \n");
         }
 
-        code++; // Temporal for testing purposes
-    }           // End of while loop
+        code++;
+        if (code > 2)
+        { // Temporal for testing purposes
+            printf("code = 3 \n");
+            break;
+        }
+    } // End of while loop
     // User I
     /*
         Bind stuff
