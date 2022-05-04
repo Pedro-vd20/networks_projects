@@ -1,7 +1,7 @@
 all: server client
 
 client: client.o threading.o
-	gcc -pthread client.o threading.o -o server
+	gcc -pthread client.o threading.o -o client
 
 client.o: client.c
 	gcc -c -pthread client.c
