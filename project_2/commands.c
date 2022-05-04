@@ -36,7 +36,7 @@ int parse_command(char* msg, char* arg) {
     // collect argument
     token = strtok(NULL, " ");
     if(token == NULL) {
-        return -1;
+        return -2;
     }
 
     strcpy(arg, token);

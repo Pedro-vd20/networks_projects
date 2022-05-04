@@ -8,6 +8,7 @@
  * @param arg field to store the argument of the command (i.e PASS arg)
  * @return int 
  *      -1  command not identified
+ *      -2 syntax error
  *       0  PORT
  *       1  USER
  *       2  PASS
@@ -27,7 +28,7 @@ int parse_command(char* msg, char* arg);
  * @brief reads code from server in incoming message and returns code 
  * 
  * @param msg sent by server
- * @return int code in the message
+ * @return int code in the message, -1 if error
  */
 int parse_response(char* msg);
 

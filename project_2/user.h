@@ -1,5 +1,5 @@
-#ifndef USER
-#define USER
+#ifndef USER_STRUCT
+#define USER_STRUCT
 
 typedef struct {
     int socket;

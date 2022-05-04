@@ -11,12 +11,48 @@
 #include "commands.h"
 #include "threading.h"
 
+// constants
+#define NUM_THREADS 32
+#define CTR_PORT 2021 // 21 blocked on linux
+#define USER 1
+#define NOT_LOGGED_IN "530 Not logged in\n"
+#define LEN_NOT_LOGGED_IN 18
+#define USERNAME_OK "331 Username OK, need password\n"
+#define LEN_USERNAME_OK 31
+#define PASS 2
+#define ERROR "501 Syntax error in parameters or arguments\n"
+#define LEN_ERROR 44
+#define NOT_IMPLEMENTED "202 Command not implemented\n"
+#define LEN_NOT_IMPLEMENTED 28 
+#define AUTHENTICATED "230 User logged in, proceed\n"
+#define LEN_AUTHENTICATED 28 
+
+
 /**
- * @brief maintains control connection for each client 
+ * @brief maintains control of connection for each client
  * 
- * @return void* client information 
+ * @param arg client information
  */
-void* handle_user(void*);
+void* handle_user(void* arg);
+
+/**
+ * @brief checks if username matches database
+ * 
+ * @param username string to check in db
+ * @return int 0 if not authenticated, 1 if found match
+ */
+int auth_user(char* username);
+
+/**
+ * @brief sees if username and password match
+ * 
+ * PREREQ: username has already been matched
+ * 
+ * @param username 
+ * @param password 
+ * @return int  0 if no match, 1 if match, -1 if error
+ */
+int auth_pass(char* username, char* password);
 
 int main() {
     // printf("Hello\n");
@@ -39,7 +75,7 @@ int main() {
 	struct sockaddr_in server_address;	//structure to save IP address and port
 	memset(&server_address,0,sizeof(server_address)); //Initialize/fill the server_address to 0
 	server_address.sin_family = AF_INET;	//address family
-	server_address.sin_port = htons(2021);	//port
+	server_address.sin_port = htons(CTR_PORT);	//port
 	inet_aton("127.0.0.1", &server_address.sin_addr);
 	if(bind(sockfd,(struct sockaddr *)&server_address,sizeof(server_address))<0) {
 		perror("Bind failed..:");
@@ -57,8 +93,8 @@ int main() {
 	struct sockaddr_in client_address;  //to store the client information
 
 	// multithread addresses to deal with requests
-	pthread_t thread_ids[10];
-	int busy[10]; // keep track of threads currently in use
+	pthread_t thread_ids[NUM_THREADS];
+	int busy[NUM_THREADS]; // keep track of threads currently in use
 	bzero(busy, sizeof(busy)); 
 
     while(1) {
@@ -75,7 +111,7 @@ int main() {
 		client user;
 		user.socket = client_sd;
 		user.address = client_address;
-		int t_id_index = open_thread(busy, 10);
+		int t_id_index = open_thread(busy, NUM_THREADS);
 		// check if index -1 (figure out how to handle later)
 		if(pthread_create(thread_ids + t_id_index, NULL, handle_user, &user) < 0) {
 			perror("multithreading");
@@ -83,11 +119,11 @@ int main() {
 		}
 
 		// close threads that finish running
-		join_thread(thread_ids, busy, 10);
+		join_thread(thread_ids, busy, NUM_THREADS);
 	
     }
 
-    // close(sockfd);
+    close(sockfd);
     return 0;
 }
 
@@ -100,12 +136,10 @@ void* handle_user(void* arg) {
     struct sockaddr_in* user_addr = &(user->address);
 
     // authenticate user
-    int auth = 0;
+    int auth1 = 0; // flag for username
+    int auth2 = 0; // flag for password
     char username[50];
-    char password[50];
     bzero(username, sizeof(username));
-    bzero(password, sizeof(password));
-
 
     char buffer[256]; // stores received message
     char fname[256]; // stores argument in message 
@@ -122,14 +156,129 @@ void* handle_user(void* arg) {
             break;
         }
 
-    
         int command = parse_command(buffer, fname);
-        printf("%d\n", command);
+        if(command == -1) {
+            send(usersd, NOT_IMPLEMENTED, LEN_NOT_IMPLEMENTED, 0);
+        }
+        else if(command == -2) {
+            send(usersd, ERROR, LEN_ERROR, 0);
+        }
+        
+        // authenticate user
+        if(!(auth1 && auth2)) {
+            
+            // check for receiving username
+            if(!auth1 && command == USER) {
+                auth1 = auth_user(fname);
+                // error reading 
+                if(auth1 < 0) {
+                    send(usersd, ERROR, LEN_ERROR, 0);
+                }
+                else if(!auth1) {
+                    // return auth error
+                    send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+                }
+                else {
+                    // username valid
+                    strcpy(username, fname);
+                    send(usersd, USERNAME_OK, LEN_USERNAME_OK, 0);
+                }
+            }
+
+            // check for receiving password
+            else if(auth1 && !auth2 && command == PASS) {
+                auth2 = auth_pass(username, fname);
+                // error reading
+                if(auth2 < 0) {
+                    send(usersd, ERROR, LEN_ERROR, 0);
+                }
+                // not authenticated
+                else if(!auth2) {
+                    send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+                }
+                // login success
+                else {
+                    send(usersd, AUTHENTICATED, LEN_AUTHENTICATED, 0);
+                }
+            }
+            // Not logged in / logging in
+            else {
+                send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+            }
+
+            continue;
+        }
+    
 
     }
 }
 
+int auth_user(char* username) {
+    // open file with usernames
+    FILE* fptr = fopen("users.csv", "r");
+    if(fptr == NULL) {
+        return -1; // error
+    }
 
+    int auth = 0;
+    
+    // loop through csv file
+    char buffer[256];
+    bzero(buffer, sizeof(buffer));
+    while(fgets(buffer, sizeof(buffer), fptr) != 0) {
+        char* user = strtok(buffer, ",");
+        if(user == NULL) {
+            return -1;
+        }
+        // username found
+        else if(strcmp(username, user) == 0) {
+            auth = 1;
+            break;
+        }
+    }
+
+
+    fclose(fptr);
+    return auth;
+}
+
+int auth_pass(char* username, char* password) {
+    // open file with usernames
+    FILE* fptr = fopen("users.csv", "r");
+    if(fptr == NULL) {
+        return -1; // error
+    }
+
+    int auth = 0;
+    
+    // loop through csv file
+    char buffer[256];
+    bzero(buffer, sizeof(buffer));
+    while(fgets(buffer, sizeof(buffer), fptr) != 0) {
+        // remove newline
+        char* tmp = strtok(buffer, "\n");
+        
+        char* token = strtok(tmp, ",");
+        if(token == NULL) {
+            return -1;
+        }
+        // username found
+        else if(strcmp(username, token) == 0) {
+            // get password
+            token = strtok(NULL, ",");
+            if(token == NULL) {
+                return -1;
+            }
+
+            auth = (strcmp(password, token) == 0);
+            break; 
+        }
+    }
+
+
+    fclose(fptr);
+    return auth;
+}
 
 // int main() {
 
