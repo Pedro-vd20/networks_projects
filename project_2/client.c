@@ -138,6 +138,7 @@ int main(int argc, char **argv)
         else if (isAuthenticated)
         {
             printf("I got authenticated!! \n");
+            
         }
 
         code++;
@@ -185,3 +186,6 @@ int main(int argc, char **argv)
 
     return 0;
 }
+
+
+void *handle_request(void ); 
