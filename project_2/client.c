@@ -41,6 +41,8 @@ Testing:
 #include <unistd.h>
 #include <sys/select.h>
 #include <stdlib.h>
+#include "commands.h"
+#include "threading.h"
 
 int main(int argc, char **argv)
 {
@@ -89,33 +91,53 @@ int main(int argc, char **argv)
 
     printf("Add \"!\" before the last three commands to apply them locally \n");
 
-    int isAuthenticated = 0;
+    int is_authenticated = 0;
+    int is_username_ok = 0;
 
     while (1)
     {
-        char input[50];
+        char input[50] = "\0";
         fgets(input, 50, stdin);
+        input[strcspn(input, "\n")] = 0;
 
-        if (strcmp(input, "QUIT") == 0) // Temporal for testing
-            break;
+        char copy_input[50];
+        char data[40];
+        strcpy(copy_input, input);
 
-        char data[40] = "1234567"; // Pointer for getting the filename/username/password
-        // CommandValidator(input, data)
+        int command_code = parse_command(copy_input, data);
 
-        int code = 1;
+        if (command_code == -1)
+        {
+            printf("Command Not Found ! \n");
+        }
+        else if (command_code == -2)
+        {
+            printf("Syntax Error \n");
+        }
+
         char response[100];
 
-        if (code == 1 && strlen(data) > 0)
+        if (command_code == 1 && strlen(data) > 0)
         {
+
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
                 perror("recv error!!");
                 break;
             }
-            printf("%s\n", response);
+
+            if (parse_response(response) == 331)
+            {
+                is_username_ok = 1;
+                printf("331 Username OK, need password.\n");
+            }
+            else
+            {
+                printf("Username not registered! \n");
+            }
         }
-        else if (code == 2 && strlen(data) > 0)
+        else if (command_code == 2 && strlen(data) > 0 && is_username_ok)
         {
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
@@ -123,30 +145,22 @@ int main(int argc, char **argv)
                 perror("recv error!!");
                 break;
             }
-            printf("%s\n", response);
-            if (strcmp(response, "230") == 0)
+
+            if (parse_response(response) == 230)
             {
-                printf("230 User logged in, proceed.");
-                isAuthenticated = 1;
+                printf("230 User logged in, proceed. \n");
+                is_authenticated = 1;
             }
-            else if (strcmp(response, "530"))
+            else if (parse_response(response) == 530)
             {
                 printf("530 Not logged in. \n");
-                break;
             }
         }
-        else if (isAuthenticated)
+        else if (is_authenticated)
         {
             printf("I got authenticated!! \n");
-            
         }
 
-        code++;
-        if (code > 2)
-        { // Temporal for testing purposes
-            printf("code = 3 \n");
-            break;
-        }
     } // End of while loop
 
     close(sockfd);
@@ -190,5 +204,4 @@ int main(int argc, char **argv)
     return 0;
 }
 
-
-void *handle_request(void ); 
+void *handle_request(void);
