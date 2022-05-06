@@ -44,6 +44,26 @@ Testing:
 #include "commands.h"
 #include "threading.h"
 
+#define USERNAME_OK "331 Username OK, need password\n"
+#define AUTHENTICATED "230 User logged in, proceed\n"
+#define NOT_LOGGED_IN "530 Not logged in\n"
+#define ERROR "501 Syntax error in parameters or arguments\n"
+// -1  command not identified
+//  *      -2 syntax error
+//  *       0  PORT
+#define PORT 0
+#define USER 1
+#define PASS 2
+#define STOR 3
+#define RETR 4
+#define LIST 5
+#define iLIST 6
+#define CWD 7
+#define iCWD 8
+#define PWD 9
+#define iPWD 10
+#define QUIT 11
+
 int main(int argc, char **argv)
 {
 
@@ -106,18 +126,14 @@ int main(int argc, char **argv)
 
         int command_code = parse_command(copy_input, data);
 
-        if (command_code == -1)
+        if (command_code < 0)
         {
-            printf("Command Not Found ! \n");
-        }
-        else if (command_code == -2)
-        {
-            printf("Syntax Error \n");
+            printf("%s", ERROR);
         }
 
         char response[100];
 
-        if (command_code == 1 && strlen(data) > 0)
+        if (command_code == USER && strlen(data) > 0)
         {
 
             send(sockfd, input, sizeof(input), 0);
@@ -130,14 +146,14 @@ int main(int argc, char **argv)
             if (parse_response(response) == 331)
             {
                 is_username_ok = 1;
-                printf("331 Username OK, need password.\n");
+                printf("%s", USERNAME_OK);
             }
             else
             {
                 printf("Username not registered! \n");
             }
         }
-        else if (command_code == 2 && strlen(data) > 0 && is_username_ok)
+        else if (command_code == PASS && strlen(data) > 0 && is_username_ok)
         {
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
@@ -148,17 +164,58 @@ int main(int argc, char **argv)
 
             if (parse_response(response) == 230)
             {
-                printf("230 User logged in, proceed. \n");
+                printf("%s", AUTHENTICATED);
                 is_authenticated = 1;
             }
             else if (parse_response(response) == 530)
             {
-                printf("530 Not logged in. \n");
+                printf("%s", NOT_LOGGED_IN);
             }
         }
+
         else if (is_authenticated)
         {
-            printf("I got authenticated!! \n");
+            if (command_code == STOR || command_code == RETR || command_code == LIST)
+            {
+                // set up port
+                
+            }
+
+            if (command_code == STOR)
+            {
+            }
+            else if (command_code == RETR)
+            {
+            }
+            else if (command_code == LIST)
+            {
+            }
+            else if (command_code == PWD || command_code == CWD)
+            {
+                send(sockfd, input, sizeof(input), 0);
+                char bufferResponse[1500];
+                if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+                {
+                    perror("recv issue, disconnecting");
+                    break;
+                }
+                printf("%s\n", bufferResponse);
+                bzero(&bufferResponse, sizeof(bufferResponse));
+            }
+            else if (command_code == iLIST)
+            {
+            }
+
+            else if (command_code == iCWD)
+            {
+            }
+
+            else if (command_code == iPWD)
+            {
+            }
+            else if (command_code == QUIT)
+            {
+            }
         }
 
     } // End of while loop
@@ -203,5 +260,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
-void *handle_request(void);
