@@ -127,6 +127,7 @@ int main() {
     return 0;
 }
 
+
 void* handle_user(void* arg) {
     // SERVER IS SUPPOSED TO SEND A 220 FIRST!!!!!!
     
@@ -134,6 +135,8 @@ void* handle_user(void* arg) {
     client* user = (client*) arg;
     int usersd = user->socket;
     struct sockaddr_in* user_addr = &(user->address);
+
+    printf("Connection established with user %d\n", usersd);
 
     // authenticate user
     int auth1 = 0; // flag for username
@@ -157,6 +160,9 @@ void* handle_user(void* arg) {
         }
 
         int command = parse_command(buffer, fname);
+
+        printf("Command received: %d\n", command);
+
         if(command == -1) {
             send(usersd, NOT_IMPLEMENTED, LEN_NOT_IMPLEMENTED, 0);
         }
@@ -169,7 +175,9 @@ void* handle_user(void* arg) {
             
             // check for receiving username
             if(!auth1 && command == USER) {
+                printf("Username: %s\n", fname);
                 auth1 = auth_user(fname);
+                printf("%d\n", auth1);
                 // error reading 
                 if(auth1 < 0) {
                     send(usersd, ERROR, LEN_ERROR, 0);
@@ -215,7 +223,7 @@ void* handle_user(void* arg) {
 
 int auth_user(char* username) {
     // open file with usernames
-    FILE* fptr = fopen("users.csv", "r");
+    FILE* fptr = fopen("../users.csv", "r");
     if(fptr == NULL) {
         return -1; // error
     }

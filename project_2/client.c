@@ -107,6 +107,7 @@ int main(int argc, char **argv)
 
         if (code == 1 && strlen(data) > 0)
         {
+            printf("%s\n", input);
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {

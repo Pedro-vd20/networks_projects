@@ -38,6 +38,7 @@ int parse_command(char* msg, char* arg) {
     if(token == NULL) {
         return -2;
     }
+    token = strtok(token, "\n");
 
     strcpy(arg, token);
 

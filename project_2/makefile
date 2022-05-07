@@ -1,13 +1,13 @@
 all: server client
 
 client: client.o threading.o commands.o
-	gcc -pthread client.o threading.o commands.o -o client
+	gcc -pthread client.o threading.o commands.o -o client/client
 
 client.o: client.c
 	gcc -c -pthread client.c
 
 server: server.o threading.o commands.o
-	gcc -pthread server.o threading.o commands.o -o server
+	gcc -pthread server.o threading.o commands.o -o server/server
 
 server.o: server.c user.h
 	gcc -c -pthread server.c
@@ -19,4 +19,4 @@ commands.o: commands.h commands.c
 	gcc -c commands.c
 
 clean:
-	rm *.o server client
+	rm *.o server/server client/client
