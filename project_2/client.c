@@ -41,6 +41,28 @@ Testing:
 #include <unistd.h>
 #include <sys/select.h>
 #include <stdlib.h>
+#include "commands.h"
+#include "threading.h"
+
+#define USERNAME_OK "331 Username OK, need password\n"
+#define AUTHENTICATED "230 User logged in, proceed\n"
+#define NOT_LOGGED_IN "530 Not logged in\n"
+#define ERROR "501 Syntax error in parameters or arguments\n"
+// -1  command not identified
+//  *      -2 syntax error
+//  *       0  PORT
+#define PORT 0
+#define USER 1
+#define PASS 2
+#define STOR 3
+#define RETR 4
+#define LIST 5
+#define iLIST 6
+#define CWD 7
+#define iCWD 8
+#define PWD 9
+#define iPWD 10
+#define QUIT 11
 
 int main(int argc, char **argv)
 {
@@ -89,34 +111,53 @@ int main(int argc, char **argv)
 
     printf("Add \"!\" before the last three commands to apply them locally \n");
 
-    int isAuthenticated = 0;
+    int is_authenticated = 0;
+    int is_username_ok = 0;
 
     while (1)
     {
-        char input[50];
+        char input[50] = "\0";
         fgets(input, 50, stdin);
+        input[strcspn(input, "\n")] = 0;
 
-        if (strcmp(input, "QUIT") == 0) // Temporal for testing
-            break;
+        char copy_input[50];
+        char data[40];
+        strcpy(copy_input, input);
 
-        char data[40] = "1234567"; // Pointer for getting the filename/username/password
-        // CommandValidator(input, data)
+        int command_code = parse_command(copy_input, data);
 
-        int code = 1;
+        if (command_code < 0)
+        {
+            printf("%s", ERROR);
+        }
+
         char response[100];
 
-        if (code == 1 && strlen(data) > 0)
+        if (command_code == USER && strlen(data) > 0)
         {
+<<<<<<< HEAD
             printf("%s\n", input);
+=======
+
+>>>>>>> e6ec988eecd8052e1c16212451fdc066f1aa50d6
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
                 perror("recv error!!");
                 break;
             }
-            printf("%s\n", response);
+
+            if (parse_response(response) == 331)
+            {
+                is_username_ok = 1;
+                printf("%s", USERNAME_OK);
+            }
+            else
+            {
+                printf("Username not registered! \n");
+            }
         }
-        else if (code == 2 && strlen(data) > 0)
+        else if (command_code == PASS && strlen(data) > 0 && is_username_ok)
         {
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
@@ -124,29 +165,63 @@ int main(int argc, char **argv)
                 perror("recv error!!");
                 break;
             }
-            printf("%s\n", response);
-            if (strcmp(response, "230") == 0)
+
+            if (parse_response(response) == 230)
             {
-                printf("230 User logged in, proceed.");
-                isAuthenticated = 1;
+                printf("%s", AUTHENTICATED);
+                is_authenticated = 1;
             }
-            else if (strcmp(response, "530"))
+            else if (parse_response(response) == 530)
             {
-                printf("530 Not logged in. \n");
-                break;
+                printf("%s", NOT_LOGGED_IN);
             }
-        }
-        else if (isAuthenticated)
-        {
-            printf("I got authenticated!! \n");
         }
 
-        code++;
-        if (code > 2)
-        { // Temporal for testing purposes
-            printf("code = 3 \n");
-            break;
+        else if (is_authenticated)
+        {
+            if (command_code == STOR || command_code == RETR || command_code == LIST)
+            {
+                // set up port
+                
+            }
+
+            if (command_code == STOR)
+            {
+            }
+            else if (command_code == RETR)
+            {
+            }
+            else if (command_code == LIST)
+            {
+            }
+            else if (command_code == PWD || command_code == CWD)
+            {
+                send(sockfd, input, sizeof(input), 0);
+                char bufferResponse[1500];
+                if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+                {
+                    perror("recv issue, disconnecting");
+                    break;
+                }
+                printf("%s\n", bufferResponse);
+                bzero(&bufferResponse, sizeof(bufferResponse));
+            }
+            else if (command_code == iLIST)
+            {
+            }
+
+            else if (command_code == iCWD)
+            {
+            }
+
+            else if (command_code == iPWD)
+            {
+            }
+            else if (command_code == QUIT)
+            {
+            }
         }
+
     } // End of while loop
 
     close(sockfd);
