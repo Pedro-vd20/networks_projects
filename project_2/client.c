@@ -135,11 +135,6 @@ int main(int argc, char **argv)
 
         if (command_code == USER && strlen(data) > 0)
         {
-<<<<<<< HEAD
-            printf("%s\n", input);
-=======
-
->>>>>>> e6ec988eecd8052e1c16212451fdc066f1aa50d6
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
