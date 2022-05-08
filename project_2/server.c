@@ -7,25 +7,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "constants.h"
 #include "user.h"
 #include "commands.h"
 #include "threading.h"
-
-// constants
-#define NUM_THREADS 32
-#define CTR_PORT 2021 // 21 blocked on linux
-#define USER 1
-#define NOT_LOGGED_IN "530 Not logged in\n"
-#define LEN_NOT_LOGGED_IN 18
-#define USERNAME_OK "331 Username OK, need password\n"
-#define LEN_USERNAME_OK 31
-#define PASS 2
-#define ERROR "501 Syntax error in parameters or arguments\n"
-#define LEN_ERROR 44
-#define NOT_IMPLEMENTED "202 Command not implemented\n"
-#define LEN_NOT_IMPLEMENTED 28 
-#define AUTHENTICATED "230 User logged in, proceed\n"
-#define LEN_AUTHENTICATED 28 
 
 
 /**
@@ -53,6 +38,16 @@ int auth_user(char* username);
  * @return int  0 if no match, 1 if match, -1 if error
  */
 int auth_pass(char* username, char* password);
+
+/**
+ * @brief Get the port from port command
+ * 
+ * @param arg info passed by port command in form h1,h2,h3,h4,p1,p2 
+ * @param p1 pointer to store p1 in
+ * @param p2 pointer to store p2 in
+ * @return int return 0 if success, -1 otherwise
+ */
+int get_port(char* arg, unsigned int* p1, unsigned int* p2);
 
 int main() {
     // printf("Hello\n");
@@ -141,6 +136,8 @@ void* handle_user(void* arg) {
     // authenticate user
     int auth1 = 0; // flag for username
     int auth2 = 0; // flag for password
+    int port_f = 0; // checks if user has already sent port info
+    unsigned long port; // holds port info
     char username[50];
     bzero(username, sizeof(username));
 
@@ -158,6 +155,8 @@ void* handle_user(void* arg) {
             printf("Closed!\n");
             break;
         }
+
+        printf("Received: %s\n", buffer);
 
         int command = parse_command(buffer, fname);
 
@@ -216,6 +215,30 @@ void* handle_user(void* arg) {
 
             continue;
         }
+        else {
+            
+            // go through all the commands
+            switch (command)
+            {
+            case PORT:
+                printf("Port command received\n");
+                unsigned int p1, p2;
+                if(get_port(fname, &p1, &p2) < 0) {
+                    // error getting port
+                    printf("HERE\n");
+                    send(usersd, ERROR, LEN_ERROR, 0);
+                }
+                else {
+                    port_f = 1;
+                    port = (p1 * 256) + p2;
+                    printf("Port: %ld\n", port);
+                }
+                break;
+            
+            default:
+                break;
+            }
+        }
     
 
     }
@@ -252,7 +275,7 @@ int auth_user(char* username) {
 
 int auth_pass(char* username, char* password) {
     // open file with usernames
-    FILE* fptr = fopen("users.csv", "r");
+    FILE* fptr = fopen("../users.csv", "r");
     if(fptr == NULL) {
         return -1; // error
     }
@@ -286,6 +309,37 @@ int auth_pass(char* username, char* password) {
 
     fclose(fptr);
     return auth;
+}
+
+int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
+    // h1,h2,h3,h4,p1,p2
+    printf("Port received: %s\n", arg);
+
+    // go through the string by commas
+    char* token = strtok(arg, ","); // h1
+    if(token == NULL) {
+        return -1;
+    }
+
+    // go through h2-h4
+    for(int i = 0; i < 4; ++i) {
+        token = strtok(NULL, ",");
+        if(token == NULL) {
+            return -1;
+        }
+    }
+
+    // token now points to p1
+    *p1 = atoi(token);
+
+    // get p2
+    token = strtok(NULL, ",");
+    if(token == NULL) {
+        return -1;
+    }
+    *p2 = atoi(token);
+
+    return 0;
 }
 
 // int main() {

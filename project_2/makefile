@@ -3,13 +3,13 @@ all: server client
 client: client.o threading.o commands.o
 	gcc -pthread client.o threading.o commands.o -o client/client
 
-client.o: client.c
+client.o: client.c constants.h
 	gcc -c -pthread client.c
 
 server: server.o threading.o commands.o
 	gcc -pthread server.o threading.o commands.o -o server/server
 
-server.o: server.c user.h
+server.o: server.c user.h constants.h
 	gcc -c -pthread server.c
 
 threading.o: threading.c threading.h
