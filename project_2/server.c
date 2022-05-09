@@ -274,6 +274,27 @@ void* handle_user(void* arg) {
                 }
                 else {
                     // set up new thread
+                    int t_index = open_thread(busy, sizeof(busy));
+                    if(t_index < 0) {
+                        // to do later
+                    }
+                    else {
+                        port_transfer transfer_info;
+                        transfer_info.address = *user_addr;
+                        transfer_info.port = port;
+                        transfer_info.socket = usersd;
+                        transfer_info.command = command;
+                        transfer_info.fname = fname;
+
+                        if(pthread_create(thread_ids + t_index, NULL, handle_transfer, &transfer_info) < 0) {
+                            perror("multithreading");
+                            return (void*) -1;
+                        }
+
+                        join_thread(thread_ids, busy, NUM_F_TRANSFERS);
+                    }
+
+                    port_f = 0;
                 }
             }
         }
