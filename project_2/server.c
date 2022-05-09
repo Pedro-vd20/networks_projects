@@ -49,6 +49,17 @@ int auth_pass(char* username, char* password);
  */
 int get_port(char* arg, unsigned int* p1, unsigned int* p2);
 
+/**
+ * @brief handle active mode transfer/download of a file
+ * 
+ * @param arg struct with all info needed
+ *      port to contact user
+ *      command being ran
+ *      file name asked (null if not needed)
+ * @return void* 
+ */
+void* handle_transfer(void* arg);
+
 int main() {
     // printf("Hello\n");
     
@@ -133,6 +144,11 @@ void* handle_user(void* arg) {
 
     printf("Connection established with user %d\n", usersd);
 
+    // threads for file transfer
+    pthread_t thread_ids[NUM_F_TRANSFERS];
+    int busy[NUM_F_TRANSFERS];
+    bzero(busy, sizeof(busy));
+
     // authenticate user
     int auth1 = 0; // flag for username
     int auth2 = 0; // flag for password
@@ -198,9 +214,12 @@ void* handle_user(void* arg) {
                 // error reading
                 if(auth2 < 0) {
                     send(usersd, ERROR, LEN_ERROR, 0);
+                    auth2 = 0;
+                    auth1 = 0;
                 }
                 // not authenticated
                 else if(!auth2) {
+                    auth1 = 0;
                     send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
                 }
                 // login success
@@ -210,6 +229,8 @@ void* handle_user(void* arg) {
             }
             // Not logged in / logging in
             else {
+                auth1 = 0;
+                auth2 = 0;
                 send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
             }
 
@@ -218,9 +239,7 @@ void* handle_user(void* arg) {
         else {
             
             // go through all the commands
-            switch (command)
-            {
-            case PORT:
+            if(command == PORT) {
                 printf("Port command received\n");
                 unsigned int p1, p2;
                 if(get_port(fname, &p1, &p2) < 0) {
@@ -233,10 +252,15 @@ void* handle_user(void* arg) {
                     port = (p1 * 256) + p2;
                     printf("Port: %ld\n", port);
                 }
-                break;
-            
-            default:
-                break;
+            }
+            else if(command == RETR || command == STOR || command == LIST) {
+                if(!port_f) {
+                    printf("Port not specified\n");
+                    send(usersd, ERROR, LEN_ERROR, 0);
+                }
+                else {
+                    // set up new thread
+                }
             }
         }
     
@@ -340,6 +364,41 @@ int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
     *p2 = atoi(token);
 
     return 0;
+}
+
+void* handle_transfer(void* arg) {
+    port_transfer* transfer_info = (port_transfer*)arg;
+
+    int client_sd = transfer_info->socket;
+
+    //setsock
+	setsockopt(client_sd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); 
+	struct sockaddr_in client_addr;
+	bzero(&client_addr,sizeof(client_addr));
+	client_addr.sin_family = AF_INET;
+	client_addr.sin_port = htons(transfer_info->port);
+	client_addr.sin_addr.s_addr = transfer_info->address.sin_addr.s_addr; 
+
+
+	//Following code will specify the local port number (20) which will be 
+	//used for the connection to the remote machine (e.g. ftp client). 
+	struct sockaddr_in my_addr;
+	bzero(&my_addr,sizeof(my_addr));
+	my_addr.sin_family = AF_INET;
+	my_addr.sin_port = htons(TRANSFER_PORT);
+	bind(client_sd,(struct sockaddr *)(&my_addr),sizeof(my_addr));
+
+    // connect to client
+    if (connect(client_sd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
+        perror("connection error");
+        return (void*) -1;
+    }
+
+    // test something
+    send(client_sd, "Hello there\n", 12, 0);
+
+    close(client_sd);
+
 }
 
 // int main() {

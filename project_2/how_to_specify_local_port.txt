@@ -1,0 +1,18 @@
+
+	//setsock
+	setsockopt(ftp_client_sd,SOL_SOCKET,SO_REUSEADDR,&(int){1},sizeof(int)); 
+	struct sockaddr_in ftp_client_addr;
+	bzero(&ftp_client_addr,sizeof(ftp_client_addr));
+	ftp_client_addr.sin_family = AF_INET;
+	ftp_client.sin_port = htons(ftp_client_port);
+	ftp_client.sin_addr.s_addr = inet_addr("ftp_client_ip_address"); 
+
+
+	//Following code will specify the local port number (20) which will be 
+	//used for the connection to the remote machine (e.g. ftp client). 
+	struct sockaddr_in my_addr;
+	bzero(&my_addr,sizeof(my_addr));
+	my_addr.sin_family = AF_INET;
+	my_addr.sin_port = htons(20);
+	bind(ftp_client_sd,(struct sockaddr *)(&my_addr),sizeof(my_addr));
+

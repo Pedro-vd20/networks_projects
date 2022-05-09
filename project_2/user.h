@@ -6,4 +6,12 @@ typedef struct {
     struct sockaddr_in address;
 } client;
 
+typedef struct {
+    struct sockaddr_in address;
+    int port;
+    int socket;
+    int command;
+    char* fname;
+} port_transfer;
+
 #endif

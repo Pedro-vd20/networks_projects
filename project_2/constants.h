@@ -3,9 +3,11 @@
 
 // threads
 #define NUM_THREADS 32
+#define NUM_F_TRANSFERS 5
 
 // ports
 #define CTR_PORT 2021 // 21 blocked on linux
+#define TRANSFER_PORT 2020
 
 // commands
 #define USER 1
