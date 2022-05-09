@@ -210,10 +210,12 @@ int main(int argc, char **argv)
                 // char *input;
 
                 thread_parameters data_transfer_info;
-                data_transfer_info.cntr_socket = sockfd;
+                data_transfer_info.control_socket = sockfd;
                 data_transfer_info.address = server_address;
                 data_transfer_info.port = control_port;
                 data_transfer_info.input = input;
+                data_transfer_info.counter = port_counter;
+                data_transfer_info.command_code = command_code;
                 // check if index -1 (figure out how to handle later)
                 if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &data_transfer_info) < 0)
                 {
@@ -269,14 +271,38 @@ void *handle_user(void *arg)
 
     // collect client info
     thread_parameters *client_info = (thread_parameters *)arg;
-    int client_sd = client_info->cntr_socket;
+    int socket_fd = client_info->control_socket;
     struct sockaddr_in *client_addr = &(client_info->address);
-    int current_port = client_info->port;
+    unsigned short current_port = client_info->port;
     char *data_transfer_command = client_info->input;
-    // inet_ntoa(client.sin_addr)
-    printf("%d %u %s\n", client_sd, current_port, data_transfer_command);
-    // char *portInfo = "PORT 127,0,0,1,";
-    // // send(sockfd, input, sizeof(input), 0);
+    int counter_port = client_info->counter;
+    int code_command = client_info->command_code;
+
+    printf("Parameters in thread: %d %u %s %d %d \n", socket_fd, current_port, data_transfer_command, counter_port, code_command);
+    unsigned char p1 = current_port / 256; // higher byte of port
+    unsigned char p2 = current_port % 256; // lower byte of port
+    printf("p1 %i \n ", p1);
+    printf("p2 %i \n", p2);
+    char portInfo[256] = "PORT 127,0,0,1,";
+
+    char portInput[256];
+    sprintf(portInput, "%s%i,%i", portInfo, p1, p2);
+    printf("portInfo:  %s \n", portInput);
+
+    // send(socket_fd, portInfo, sizeof(portInfo), 0);
+    char bufferResponse[1500];
+    while (1)
+    {
+        send(socket_fd, portInfo, sizeof(portInfo), 0);
+
+        if (recv(socket_fd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+        {
+            perror("recv issue, disconnecting");
+            break;
+        }
+        printf("buffer response: %s \n", bufferResponse);
+        break;
+    }
 
     // int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
     // if (dataTransFD < 0)
@@ -297,13 +323,16 @@ void *handle_user(void *arg)
     //     return -1;
     // }
 
-    // if (command_code == STOR)
-    // {
-    // }
-    // else if (command_code == RETR)
-    // {
-    // }
-    // else if (command_code == LIST)
-    // {
-    // }
+    if (code_command == STOR)
+    {
+        printf("STRO! \n");
+    }
+    else if (code_command == RETR)
+    {
+        printf("RETR! \n");
+    }
+    else if (code_command == LIST)
+    {
+        printf("LIST! \n");
+    }
 }
