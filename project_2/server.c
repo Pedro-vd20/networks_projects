@@ -7,25 +7,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "constants.h"
 #include "user.h"
 #include "commands.h"
 #include "threading.h"
 
-// constants
-#define NUM_THREADS 32
-#define CTR_PORT 2021 // 21 blocked on linux
-#define USER 1
-#define NOT_LOGGED_IN "530 Not logged in\n"
-#define LEN_NOT_LOGGED_IN 18
-#define USERNAME_OK "331 Username OK, need password\n"
-#define LEN_USERNAME_OK 31
-#define PASS 2
-#define ERROR "501 Syntax error in parameters or arguments\n"
-#define LEN_ERROR 44
-#define NOT_IMPLEMENTED "202 Command not implemented\n"
-#define LEN_NOT_IMPLEMENTED 28
-#define AUTHENTICATED "230 User logged in, proceed\n"
-#define LEN_AUTHENTICATED 28
 
 /**
  * @brief maintains control of connection for each client
@@ -53,8 +39,17 @@ int auth_user(char *username);
  */
 int auth_pass(char *username, char *password);
 
-int main()
-{
+/**
+ * @brief Get the port from port command
+ * 
+ * @param arg info passed by port command in form h1,h2,h3,h4,p1,p2 
+ * @param p1 pointer to store p1 in
+ * @param p2 pointer to store p2 in
+ * @return int return 0 if success, -1 otherwise
+ */
+int get_port(char* arg, unsigned int* p1, unsigned int* p2);
+
+int main() {
     // printf("Hello\n");
 
     // socket: create the socket
@@ -132,8 +127,8 @@ int main()
     return 0;
 }
 
-void *handle_user(void *arg)
-{
+
+void* handle_user(void* arg) {
     // SERVER IS SUPPOSED TO SEND A 220 FIRST!!!!!!
 
     // collect client info
@@ -141,9 +136,13 @@ void *handle_user(void *arg)
     int usersd = user->socket;
     struct sockaddr_in *user_addr = &(user->address);
 
+    printf("Connection established with user %d\n", usersd);
+
     // authenticate user
     int auth1 = 0; // flag for username
     int auth2 = 0; // flag for password
+    int port_f = 0; // checks if user has already sent port info
+    unsigned long port; // holds port info
     char username[50];
     bzero(username, sizeof(username));
 
@@ -164,10 +163,13 @@ void *handle_user(void *arg)
             break;
         }
 
+        printf("Received: %s\n", buffer);
+
         int command = parse_command(buffer, fname);
 
-        if (command == -1)
-        {
+        printf("Command received: %d\n", command);
+
+        if(command == -1) {
             send(usersd, NOT_IMPLEMENTED, LEN_NOT_IMPLEMENTED, 0);
         }
         else if (command == -2)
@@ -180,14 +182,12 @@ void *handle_user(void *arg)
         {
 
             // check for receiving username
-            if (!auth1 && command == USER)
-            {
-
+            if(!auth1 && command == USER) {
+                printf("Username: %s\n", fname);
                 auth1 = auth_user(fname);
-
-                // error reading
-                if (auth1 < 0)
-                {
+                printf("%d\n", auth1);
+                // error reading 
+                if(auth1 < 0) {
                     send(usersd, ERROR, LEN_ERROR, 0);
                 }
                 else if (!auth1)
@@ -231,15 +231,40 @@ void *handle_user(void *arg)
 
             continue;
         }
+        else {
+            
+            // go through all the commands
+            switch (command)
+            {
+            case PORT:
+                printf("Port command received\n");
+                unsigned int p1, p2;
+                if(get_port(fname, &p1, &p2) < 0) {
+                    // error getting port
+                    printf("HERE\n");
+                    send(usersd, ERROR, LEN_ERROR, 0);
+                }
+                else {
+                    port_f = 1;
+                    port = (p1 * 256) + p2;
+                    printf("Port: %ld\n", port);
+                }
+                break;
+            
+            default:
+                break;
+            }
+        }
+    
+
     }
 }
 
 int auth_user(char *username)
 {
     // open file with usernames
-    FILE *fptr = fopen("users.csv", "r");
-    if (fptr == NULL)
-    {
+    FILE* fptr = fopen("../users.csv", "r");
+    if(fptr == NULL) {
         return -1; // error
     }
 
@@ -271,9 +296,8 @@ int auth_user(char *username)
 int auth_pass(char *username, char *password)
 {
     // open file with usernames
-    FILE *fptr = fopen("users.csv", "r");
-    if (fptr == NULL)
-    {
+    FILE* fptr = fopen("../users.csv", "r");
+    if(fptr == NULL) {
         return -1; // error
     }
 
@@ -309,6 +333,37 @@ int auth_pass(char *username, char *password)
 
     fclose(fptr);
     return auth;
+}
+
+int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
+    // h1,h2,h3,h4,p1,p2
+    printf("Port received: %s\n", arg);
+
+    // go through the string by commas
+    char* token = strtok(arg, ","); // h1
+    if(token == NULL) {
+        return -1;
+    }
+
+    // go through h2-h4
+    for(int i = 0; i < 4; ++i) {
+        token = strtok(NULL, ",");
+        if(token == NULL) {
+            return -1;
+        }
+    }
+
+    // token now points to p1
+    *p1 = atoi(token);
+
+    // get p2
+    token = strtok(NULL, ",");
+    if(token == NULL) {
+        return -1;
+    }
+    *p2 = atoi(token);
+
+    return 0;
 }
 
 // int main() {

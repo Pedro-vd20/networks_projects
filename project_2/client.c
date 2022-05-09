@@ -135,7 +135,6 @@ int main(int argc, char **argv)
 
         if (command_code == USER && strlen(data) > 0)
         {
-
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
