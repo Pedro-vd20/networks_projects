@@ -43,6 +43,8 @@ Testing:
 #include <stdlib.h>
 #include "commands.h"
 #include "threading.h"
+#include "constants.h"
+#include "user.h"
 
 #define USERNAME_OK "331 Username OK, need password\n"
 #define AUTHENTICATED "230 User logged in, proceed\n"
@@ -63,6 +65,13 @@ Testing:
 #define PWD 9
 #define iPWD 10
 #define QUIT 11
+
+/**
+ * @brief maintains control of connection for each client
+ *
+ * @param arg client information
+ */
+void *handle_user(void *arg);
 
 int main(int argc, char **argv)
 {
@@ -93,6 +102,15 @@ int main(int argc, char **argv)
         perror("connection error");
         return -1;
     }
+
+    // get the port of the client after connect
+    struct sockaddr_in client;
+    socklen_t clientsz = sizeof(client);
+    getsockname(sockfd, (struct sockaddr *)&client, &clientsz);
+
+    printf("[%s:%u] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+
+    unsigned short control_port = ntohs(client.sin_port);
     // User Interface
     printf("control socket connected!");
     // menu
@@ -113,6 +131,10 @@ int main(int argc, char **argv)
 
     int is_authenticated = 0;
     int is_username_ok = 0;
+    int port_counter = 0;
+    pthread_t thread_ids[NUM_THREADS];
+    int busy[NUM_THREADS]; // keep track of threads currently in use
+    bzero(busy, sizeof(busy));
 
     while (1)
     {
@@ -135,6 +157,7 @@ int main(int argc, char **argv)
 
         if (command_code == USER && strlen(data) > 0)
         {
+
             send(sockfd, input, sizeof(input), 0);
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
@@ -174,21 +197,36 @@ int main(int argc, char **argv)
 
         else if (is_authenticated)
         {
+
             if (command_code == STOR || command_code == RETR || command_code == LIST)
             {
-                // set up port
-                
+                // openThread
+
+                int t_id_index = open_thread(busy, NUM_THREADS);
+                // int cntr_socket;
+                // struct sockaddr_in address;
+                // int counter;
+                // unsigned short port;
+                // char *input;
+
+                thread_parameters data_transfer_info;
+                data_transfer_info.cntr_socket = sockfd;
+                data_transfer_info.address = server_address;
+                data_transfer_info.port = control_port;
+                data_transfer_info.input = input;
+                // check if index -1 (figure out how to handle later)
+                if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &data_transfer_info) < 0)
+                {
+                    perror("multithreading");
+                    return -1;
+                }
+
+                port_counter++;
+
+                // close threads that finish running
+                join_thread(thread_ids, busy, NUM_THREADS);
             }
 
-            if (command_code == STOR)
-            {
-            }
-            else if (command_code == RETR)
-            {
-            }
-            else if (command_code == LIST)
-            {
-            }
             else if (command_code == PWD || command_code == CWD)
             {
                 send(sockfd, input, sizeof(input), 0);
@@ -216,46 +254,56 @@ int main(int argc, char **argv)
             {
             }
         }
-
-    } // End of while loop
+    }
+    // End of while loop
 
     close(sockfd);
 
-    // User I
-    /*
-        Bind stuff
-
-        Comm to port 21
-
-        Authenticate user
-
-        Loop asking user
-
-            Ask user for command
-
-            Check command validity
-
-            Send command
-
-            Await response
-
-            Display response
-
-            IF FILE TRANSFER REQUEST
-
-                Start thread
-
-                Send server new random port
-
-                Listen on that port for server (listen for port 20)
-
-                Close port
-
-                Close thread
-
-
-
-    */
-
     return 0;
+}
+
+void *handle_user(void *arg)
+{
+
+    // collect client info
+
+    // collect client info
+    thread_parameters *client_info = (thread_parameters *)arg;
+    int client_sd = client_info->cntr_socket;
+    struct sockaddr_in *client_addr = &(client_info->address);
+    int current_port = client_info->port;
+    char *data_transfer_command = client_info->input;
+    // inet_ntoa(client.sin_addr)
+    printf("%d %u %s\n", client_sd, current_port, data_transfer_command);
+    // char *portInfo = "PORT 127,0,0,1,";
+    // // send(sockfd, input, sizeof(input), 0);
+
+    // int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
+    // if (dataTransFD < 0)
+    // {
+    //     perror("Socket Error!");
+    //     exit(1);
+    // }
+    // // Control connection to the server to port 20 and local host;
+    // struct sockaddr_in server_address2;
+    // memset(&server_address2, 0, sizeof(server_address2));
+    // server_address2.sin_family = AF_INET;
+    // inet_aton("127.0.0.1", &server_address2.sin_addr);
+    // server_address2.sin_port = htons(2020);
+
+    // if (connect(dataTransFD, (struct sockaddr *)&server_address2, sizeof(server_address2)) < 0)
+    // {
+    //     perror("connection error");
+    //     return -1;
+    // }
+
+    // if (command_code == STOR)
+    // {
+    // }
+    // else if (command_code == RETR)
+    // {
+    // }
+    // else if (command_code == LIST)
+    // {
+    // }
 }
