@@ -22,6 +22,7 @@ typedef struct
     int counter;
     unsigned short port;
     char *input;
+    int command_code;
 
 } thread_parameters;
 

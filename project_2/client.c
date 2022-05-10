@@ -53,18 +53,18 @@ Testing:
 // -1  command not identified
 //  *      -2 syntax error
 //  *       0  PORT
-#define PORT 0
-#define USER 1
-#define PASS 2
-#define STOR 3
-#define RETR 4
-#define LIST 5
+// #define PORT 0
+// #define USER 1
+// #define PASS 2
+// #define STOR 3
+// #define RETR 4
+// #define LIST 5
 #define iLIST 6
-#define CWD 7
+// #define CWD 7
 #define iCWD 8
-#define PWD 9
+// #define PWD 9
 #define iPWD 10
-#define QUIT 11
+// #define QUIT 11
 
 /**
  * @brief maintains control of connection for each client
@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 
     int is_authenticated = 0;
     int is_username_ok = 0;
-    int port_counter = 0;
+    int port_counter = 1;
     pthread_t thread_ids[NUM_THREADS];
     int busy[NUM_THREADS]; // keep track of threads currently in use
     bzero(busy, sizeof(busy));
@@ -210,11 +210,11 @@ int main(int argc, char **argv)
                 // char *input;
 
                 thread_parameters data_transfer_info;
-                data_transfer_info.control_socket = sockfd;
+                data_transfer_info.cntr_socket = sockfd;
                 data_transfer_info.address = server_address;
                 data_transfer_info.port = control_port;
                 data_transfer_info.input = input;
-                data_transfer_info.counter = port_counter;
+                data_transfer_info.counter = port_counter + control_port;
                 data_transfer_info.command_code = command_code;
                 // check if index -1 (figure out how to handle later)
                 if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &data_transfer_info) < 0)
@@ -266,43 +266,87 @@ int main(int argc, char **argv)
 
 void *handle_user(void *arg)
 {
-
-    // collect client info
-
     // collect client info
     thread_parameters *client_info = (thread_parameters *)arg;
-    int socket_fd = client_info->control_socket;
+    int socket_fd = client_info->cntr_socket;
     struct sockaddr_in *client_addr = &(client_info->address);
     unsigned short current_port = client_info->port;
     char *data_transfer_command = client_info->input;
     int counter_port = client_info->counter;
     int code_command = client_info->command_code;
 
-    printf("Parameters in thread: %d %u %s %d %d \n", socket_fd, current_port, data_transfer_command, counter_port, code_command);
-    unsigned char p1 = current_port / 256; // higher byte of port
-    unsigned char p2 = current_port % 256; // lower byte of port
-    printf("p1 %i \n ", p1);
+    // get port
+    printf("Parameters in thread: %d %u %s %d %d\n", socket_fd, current_port, data_transfer_command, counter_port, code_command);
+    unsigned char p1 = counter_port / 256; // higher byte of port
+    unsigned char p2 = counter_port % 256; // lower byte of port
+    printf("p1 %i \n", p1);
     printf("p2 %i \n", p2);
     char portInfo[256] = "PORT 127,0,0,1,";
 
     char portInput[256];
-    sprintf(portInput, "%s%i,%i", portInfo, p1, p2);
-    printf("portInfo:  %s \n", portInput);
+    sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
+    printf("portInfo:  %s", portInput);
+
+    send(socket_fd, portInput, sizeof(portInfo), 0);
 
     // send(socket_fd, portInfo, sizeof(portInfo), 0);
     char bufferResponse[1500];
-    while (1)
+    if (recv(socket_fd, bufferResponse, sizeof(bufferResponse), 0) < 0)
     {
-        send(socket_fd, portInfo, sizeof(portInfo), 0);
-
-        if (recv(socket_fd, bufferResponse, sizeof(bufferResponse), 0) < 0)
-        {
-            perror("recv issue, disconnecting");
-            break;
-        }
-        printf("buffer response: %s \n", bufferResponse);
-        break;
+        perror("recv issue, disconnecting");
+        return (void*) -1;
     }
+    printf("buffer response: %s \n", bufferResponse);
+
+    // get code of response
+    int response_code = parse_response(bufferResponse);
+
+    if(response_code == 200) {
+        // get socket
+        int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
+        if(transfer_sock < 0) {
+            perror("Error opening socket");
+            return (void*) -1;
+        }
+        
+        // Control connection to the server to port 20 and local host;
+        struct sockaddr_in client_address2;
+        memset(&client_address2, 0, sizeof(client_address2));
+        client_address2.sin_family = AF_INET;
+        inet_aton("127.0.0.1", &client_address2.sin_addr);
+        client_address2.sin_port = htons(counter_port);
+
+        if (bind(transfer_sock, (struct sockaddr *)&client_address2, sizeof(client_address2)) < 0)
+        {
+            perror("Bind failed..:");
+            return (void*) -1;
+        }
+
+        // listen on port
+        if (listen(transfer_sock, 5) < 0)
+        {
+            perror("Listen Error:");
+            return (void*) -1;
+        }
+
+        bzero(bufferResponse, sizeof(bufferResponse));
+
+        struct sockaddr_in server_address2;
+        bzero(&server_address2, sizeof(server_address2));
+        int server_sd2 = accept(socket_fd, (struct sockaddr*)&server_address2, sizeof(server_address2));
+
+        printf("New connection from port %d\n", ntohs(server_address2.sin_port));
+        
+        recv(server_sd2, bufferResponse, sizeof(bufferResponse), 0);
+        printf("Received on new connection: %s\n", bufferResponse);
+        
+
+
+    }
+    else {
+        printf("Command failed: %s\n", data_transfer_command);
+    }
+
 
     // int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
     // if (dataTransFD < 0)

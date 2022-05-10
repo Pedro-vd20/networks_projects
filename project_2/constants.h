@@ -34,5 +34,7 @@
 #define LEN_NOT_IMPLEMENTED 28 
 #define AUTHENTICATED "230 User logged in, proceed\n"
 #define LEN_AUTHENTICATED 28 
+#define PORT_SUCCESS "200 PORT command successful\n"
+#define LEN_PORT_SUCCESS 28
 
 #endif
