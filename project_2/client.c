@@ -42,7 +42,6 @@ Testing:
 #include <sys/select.h>
 #include <stdlib.h>
 #include "commands.h"
-#include "threading.h"
 #include "constants.h"
 #include "user.h"
 #include "data_transfer.h"
@@ -72,7 +71,7 @@ Testing:
  *
  * @param arg client information
  */
-void *handle_user(void *arg);
+void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char* data);
 int ask_server_if_file_exists(int sockfd);
 int create_tcp_connection(int port);
 int send_new_port(int sockfd, int new_port, char *input);
@@ -236,29 +235,14 @@ int main(int argc, char **argv)
                     // if command successfully set up, start parallel connection
                     if (start_thread)
                     {
-                        // open thread and prepare connection
-                        printf("I am about to start thread ... \n ");
-                        int td_index = open_thread(busy, sizeof(busy));
-                        if (td_index < 0)
-                        {
-                            printf("Command failed, all threads busy\n");
-                        }
-                        // set up parameters needed for data transfer
-                        thread_parameters data_transfer_info;
-                        data_transfer_info.address = server_address;
-                        data_transfer_info.port = new_port;
-                        data_transfer_info.data = data;
-                        data_transfer_info.command_code = command_code;
 
-                        if (pthread_create(thread_ids + td_index, NULL, handle_user, &data_transfer_info) < 0)
-                        {
-                            perror("Opening thread");
-                        }
+                        int pid = -1;
 
-                        // close any open threads
-                        // printf("HERE\n");
-                        join_thread(thread_ids, busy, NUM_THREADS);
-                        // printf("HERE 2\n");
+                        pid = fork();
+                        if(pid == 0) {
+                            handle_transfer(new_port, server_address, command_code, data);
+                            return 0;
+                        }
                     }
                 }
             }
@@ -303,16 +287,9 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void *handle_user(void *arg)
+void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char* data)
 {
     printf("Now in new thread\n");
-
-    // collect transfer data
-    thread_parameters *client_info = (thread_parameters *)arg;
-    int command_code = client_info->command_code;
-    unsigned short port = client_info->port;
-    struct sockaddr_in address = client_info->address;
-    char *data = client_info->data;
 
     printf("w i data %s \n", data);
 
@@ -331,6 +308,7 @@ void *handle_user(void *arg)
     }
     else if (command_code == LIST)
     {
+
     }
     return 0;
 }

@@ -10,7 +10,6 @@
 #include "constants.h"
 #include "user.h"
 #include "commands.h"
-#include "threading.h"
 
 
 /**
@@ -18,7 +17,7 @@
  *
  * @param arg client information
  */
-void *handle_user(void *arg);
+void handle_user(int usersd, struct sockaddr_in* user_addr);
 
 /**
  * @brief checks if username matches database
@@ -58,7 +57,7 @@ int get_port(char* arg, unsigned int* p1, unsigned int* p2);
  *      file name asked (null if not needed)
  * @return void* 
  */
-void* handle_transfer(void* arg);
+void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command, char* fname);
 
 int main() {
     // printf("Hello\n");
@@ -97,42 +96,28 @@ int main() {
     }
 
     struct sockaddr_in client_address; // to store the client information
-
-    // multithread addresses to deal with requests
-    pthread_t thread_ids[NUM_THREADS];
-    int busy[NUM_THREADS]; // keep track of threads currently in use
-    bzero(busy, sizeof(busy));
+    bzero(&client_address, sizeof(client_address));
 
     while (1) {
-        printf("Waiting connection\n");
+        int pid = -1;
+
         // accept new connection from client
         int client_len = sizeof(client_address);                                                      // lent of client cliend address of type sockaddr_in
         int client_sd = accept(sockfd, (struct sockaddr *)&client_address, (socklen_t *)&client_len); // accept the connection but also fill the client address with client info
-        
-        printf("Accepted new connection\n");
+
 
         if (client_sd < 1) {
             perror("Accept Error:");
             return -1;
         }
-
-        // send thread to handle response
-        client user;
-        user.socket = client_sd;
-        user.address = client_address;
-        int t_id_index = open_thread(busy, NUM_THREADS);
-        // check if index -1 (figure out how to handle later)
-        if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &user) < 0) {
-            perror("multithreading");
-            return -1;
+        else {
+            pid = fork();
         }
 
-        printf("Thread started successfully\n");
-
-        // close threads that finish running
-        join_thread(thread_ids, busy, NUM_THREADS);
-
-        printf("Thread closed\n");
+        if(pid == 0) {
+            handle_user(client_sd, &client_address);
+            return 0;
+        }
     }
 
     close(sockfd);
@@ -140,13 +125,8 @@ int main() {
 }
 
 
-void* handle_user(void* arg) {
+void handle_user(int usersd, struct sockaddr_in* user_addr) {
     // SERVER IS SUPPOSED TO SEND A 220 FIRST!!!!!!
-
-    // collect client info
-    client *user = (client *)arg;
-    int usersd = user->socket;
-    struct sockaddr_in *user_addr = &(user->address);
 
     printf("Connection established with user %d\n", usersd);
     printf("Their port: %d\n", ntohs(user_addr->sin_port));
@@ -295,24 +275,13 @@ void* handle_user(void* arg) {
                     
                     send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
 
-                    int thread_index = open_thread(busy, NUM_F_TRANSFERS);
-                    if(thread_index < 0) {
-                        send(usersd, TRANSFER_ERROR, LEN_TRANSFER_ERROR, 0);
-                    }
-                    
-                    port_transfer transfer_info;
-                    transfer_info.address = *user_addr;
-                    transfer_info.command = command;
-                    transfer_info.fname = fname;
-                    transfer_info.port = port;
+                    int pid = -1;
+                    pid = fork();
 
-                    if(pthread_create(thread_ids + thread_index, NULL, handle_transfer, &transfer_info) < 0) {
-                        perror("Opening thread");
+                    if(pid == 0) {
+                        handle_transfer(port, &user_addr, command, fname);
+                        return;
                     }
-
-                    // close any open threads
-                    // printf("HERE\n");
-                    join_thread(thread_ids, busy, NUM_THREADS);
 
                     port_f = 0;
                 }
@@ -427,11 +396,9 @@ int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
     return 0;
 }
 
-void* handle_transfer(void* arg) {
+void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command, char* fname) {
 
     printf("Now in thread\n");
-    
-    port_transfer* transfer_info = (port_transfer*)arg;
     
     printf("HERE \n");
     
@@ -448,8 +415,8 @@ void* handle_transfer(void* arg) {
 	struct sockaddr_in client_addr;
 	bzero(&client_addr,sizeof(client_addr));
 	client_addr.sin_family = AF_INET;
-	client_addr.sin_port = htons(transfer_info->port);
-	client_addr.sin_addr.s_addr = transfer_info->address.sin_addr.s_addr; 
+	client_addr.sin_port = htons(port);
+	client_addr.sin_addr.s_addr = addr->sin_addr.s_addr; 
 
     printf("HERE 3\n");
 

@@ -1,19 +1,16 @@
 all: server client
 
-client: client.o threading.o commands.o data_transfer.o
-	gcc -pthread client.o threading.o commands.o  data_transfer.o -o client/client
+client: client.o commands.o data_transfer.o
+	gcc client.o commands.o  data_transfer.o -o client/client
 
 client.o: client.c constants.h 
-	gcc -c -pthread client.c
+	gcc -c client.c
 
-server: server.o threading.o commands.o data_transfer.o
-	gcc -pthread server.o threading.o commands.o data_transfer.o -o server/server
+server: server.o commands.o data_transfer.o
+	gcc server.o commands.o data_transfer.o -o server/server
 
 server.o: server.c user.h constants.h
-	gcc -c -pthread server.c
-
-threading.o: threading.c threading.h
-	gcc -c -pthread threading.c
+	gcc -c server.c
 
 commands.o: commands.h commands.c
 	gcc -c commands.c
