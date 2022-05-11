@@ -200,22 +200,25 @@ int main(int argc, char **argv)
             {
                 // flag (only relevant for STOR)
                 int f_exists = 1;
-                if(command_code == STOR) {
-                    FILE* ptr = fopen(data, "r");
+                if (command_code == STOR)
+                {
+                    FILE *ptr = fopen(data, "r");
                     printf("File to send: %s\n", data);
-                    
+
                     // check if file exists
-                    if(ptr == NULL) {
+                    if (ptr == NULL)
+                    {
                         f_exists = 0;
                         printf("%s", NO_SUCH_FILE);
                     }
-                    else {
+                    else
+                    {
                         fclose(ptr);
                     }
                 }
 
-
-                if(f_exists) {
+                if (f_exists)
+                {
                     // set up port
                     unsigned short new_port = control_port + port_counter++;
 
@@ -228,7 +231,7 @@ int main(int argc, char **argv)
                     char portInput[256];
                     sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
                     printf("portInfo:  %s", portInput);
-                    
+
                     // Send PORT to server
                     send(sockfd, portInput, sizeof(portInput), 0);
 
@@ -238,19 +241,20 @@ int main(int argc, char **argv)
                     if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
                     {
                         perror("recv issue, disconnecting");
-                        return (void*) -1;
+                        return (void *)-1;
                     }
                     printf("buffer response: %s", bufferResponse);
 
                     // Send actual command after authenticating port
-                    if(parse_response(bufferResponse) == 200) {
+                    if (parse_response(bufferResponse) == 200)
+                    {
                         // thread flag
                         int start_thread = 0;
-                        
+
                         // send command (STOR/RETR/LIST) to server
                         printf("Sending: %s\n", input);
                         send(sockfd, input, sizeof(input), 0);
-                        
+
                         // wait for server response
                         bzero(bufferResponse, sizeof(bufferResponse));
                         recv(sockfd, bufferResponse, sizeof(bufferResponse), 0);
@@ -258,19 +262,23 @@ int main(int argc, char **argv)
                         printf("Server Response: %s", bufferResponse);
 
                         // Server says file doesn't exist
-                        if(parse_response(bufferResponse) == 550) {
+                        if (parse_response(bufferResponse) == 550)
+                        {
                             printf("%s", bufferResponse);
                         }
                         // server says file okay
-                        else if(parse_response(bufferResponse) == 150) {
+                        else if (parse_response(bufferResponse) == 150)
+                        {
                             start_thread = 1;
                         }
 
                         // if command successfully set up, start parallel connection
-                        if(start_thread) {
+                        if (start_thread)
+                        {
                             // open thread and prepare connection
                             int td_index = open_thread(busy, sizeof(busy));
-                            if(td_index < 0) {
+                            if (td_index < 0)
+                            {
                                 printf("Command failed, all threads busy\n");
                             }
                             // set up parameters needed for data transfer
@@ -279,8 +287,9 @@ int main(int argc, char **argv)
                             data_transfer_info.port = new_port;
                             data_transfer_info.data = data;
                             data_transfer_info.command_code = command_code;
-    
-                            if(pthread_create(thread_ids + td_index, NULL, handle_user, &data_transfer_info) < 0) {
+
+                            if (pthread_create(thread_ids + td_index, NULL, handle_user, &data_transfer_info) < 0)
+                            {
                                 perror("Opening thread");
                             }
 
@@ -290,7 +299,8 @@ int main(int argc, char **argv)
                             // printf("HERE 2\n");
                         }
                     }
-                    else {
+                    else
+                    {
                         printf("%s\nError setting port up\n", bufferResponse);
                     }
                 }
@@ -342,21 +352,23 @@ void *handle_user(void *arg)
     printf("Now in new thread\n");
 
     // collect transfer data
-    thread_parameters* client_info = (thread_parameters*) arg;
+    thread_parameters *client_info = (thread_parameters *)arg;
     int command_code = client_info->command_code;
     unsigned short port = client_info->port;
     struct sockaddr_in address = client_info->address;
-    char* data = client_info->data;
+    char *data = client_info->data;
 
     // open socket
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(transfer_sock < 0) {
+    if (transfer_sock < 0)
+    {
         perror("Socket");
         return;
     }
 
     // bind socket
-    if (setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
+    if (setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+    {
         perror("");
         return;
     }
@@ -381,7 +393,7 @@ void *handle_user(void *arg)
     struct sockaddr_in server_address;
 
     // accept new connection from server
-    int server_len = sizeof(server_address);                                                      // lent of client cliend address of type sockaddr_in
+    int server_len = sizeof(server_address);                                                               // lent of client cliend address of type sockaddr_in
     int server_sock = accept(transfer_sock, (struct sockaddr *)&server_address, (socklen_t *)&server_len); // accept the connection but also fill the client address with client info
     if (server_sock < 1)
     {
@@ -391,16 +403,16 @@ void *handle_user(void *arg)
 
     char buffer[1024];
     bzero(buffer, sizeof(buffer));
-    while(1) {
-
+    while (1)
+    {
     }
 
     close(transfer_sock);
-    
+
     /*
     // collect client info
     thread_parameters *client_info = (thread_parameters *)arg;
-    
+
 
     // get port
     printf("Parameters in thread: %d %u %s %d %d\n", socket_fd, current_port, data_transfer_command, counter_port, code_command);
@@ -435,7 +447,7 @@ void *handle_user(void *arg)
             perror("Error opening socket");
             return (void*) -1;
         }
-        
+
         // Control connection to the server to port 20 and local host;
         struct sockaddr_in client_address2;
         memset(&client_address2, 0, sizeof(client_address2));
@@ -463,7 +475,7 @@ void *handle_user(void *arg)
         int server_sd2 = accept(socket_fd, (struct sockaddr*)&server_address2, sizeof(server_address2));
 
         printf("New connection from port %d\n", ntohs(server_address2.sin_port));
-        
+
         while(1) {
             recv(server_sd2, bufferResponse, sizeof(bufferResponse), 0);
             printf("Received on new connection: %s\n", bufferResponse);
