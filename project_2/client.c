@@ -45,6 +45,7 @@ Testing:
 #include "threading.h"
 #include "constants.h"
 #include "user.h"
+#include "data_transfer.h"
 
 #define USERNAME_OK "331 Username OK, need password\n"
 #define AUTHENTICATED "230 User logged in, proceed\n"
@@ -72,15 +73,12 @@ Testing:
  * @param arg client information
  */
 void *handle_user(void *arg);
+int ask_server_if_file_exists(int sockfd);
+int create_tcp_connection(int port);
+int send_new_port(int sockfd, int port);
 
 int main(int argc, char **argv)
 {
-
-    // if (argc != 3)
-    // {
-    //     fprintf(stderr, "usage: %s <IP Address> <Port> \n", argv[0]);
-    //     exit(1);
-    // }
 
     // Declare and verify socket file descriptor
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -108,7 +106,7 @@ int main(int argc, char **argv)
     socklen_t clientsz = sizeof(client);
     getsockname(sockfd, (struct sockaddr *)&client, &clientsz);
 
-    printf("[%s:%u] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+    printf("[%s:%i] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
     unsigned short control_port = ntohs(client.sin_port);
     // User Interface
@@ -312,10 +310,16 @@ int main(int argc, char **argv)
             }
             else if (command_code == iLIST)
             {
+                if (system("ls") == -1)
+                    printf("Invalid '!ls' command\n");
             }
 
             else if (command_code == iCWD)
             {
+                if (chdir(data) == -1)
+                    printf("Invalid '!cwd' command\n");
+                else
+                    printf("Local directory successfully changed.\n");
             }
 
             else if (command_code == iPWD)
@@ -470,6 +474,9 @@ void *handle_user(void *arg)
     else {
         printf("Command failed: %s\n", data_transfer_command);
     }
+    printf("finishing sending new port \n");
+    return was_succesful;
+}
 
 
     // int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -491,15 +498,11 @@ void *handle_user(void *arg)
     //     return -1;
     // }
 
-    if (code_command == STOR)
-    {
-        printf("STRO! \n");
-    }
-    else if (code_command == RETR)
-    {
-        printf("RETR! \n");
-    }
-    else if (code_command == LIST)
+    printf("starting ask server \n");
+    char bufferResponse[256];
+
+    int does_file_exist;
+    while (1)
     {
         printf("LIST! \n");
     }*/
