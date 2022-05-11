@@ -148,6 +148,7 @@ void* handle_user(void* arg) {
     struct sockaddr_in *user_addr = &(user->address);
 
     printf("Connection established with user %d\n", usersd);
+    printf("Their port: %d\n", ntohs(user_addr->sin_port));
 
     // threads for file transfer
     pthread_t thread_ids[NUM_F_TRANSFERS];
@@ -258,13 +259,14 @@ void* handle_user(void* arg) {
                 unsigned int p1, p2;
                 if(get_port(fname, &p1, &p2) < 0) {
                     // error getting port
-                    printf("HERE\n");
+                    printf("Error with port\n");
                     send(usersd, ERROR, LEN_ERROR, 0);
                 }
                 else {
                     port_f = 1;
                     port = (p1 * 256) + p2;
                     printf("Port: %ld\n", port);
+                    send(usersd, PORT_SUCCESS, LEN_PORT_SUCCESS, 0);
                 }
             }
             else if(command == RETR || command == STOR || command == LIST) {
@@ -273,7 +275,28 @@ void* handle_user(void* arg) {
                     send(usersd, ERROR, LEN_ERROR, 0);
                 }
                 else {
+                    if(command == RETR) {
+                        // check if file exists
+                        FILE* ptr = fopen(fname, "r");
+                        if(ptr == NULL) {
+                            send(usersd, NO_SUCH_FILE, LEN_NO_SUCH_FILE, 0);
+                        }
+                        else {
+                            fclose(ptr);
+                            send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
+                        }
+                        printf("RETR\n");
+                    }
+                    else if(command == STOR) {
+                        printf("STOR\n");
+                    }
+                    else {
+                        printf("LIST\n");
+                    }
+                    
+                    printf("Starting new thread with client\n");
                     // set up new thread
+                    /*
                     int t_index = open_thread(busy, sizeof(busy));
                     if(t_index < 0) {
                         // to do later
@@ -295,6 +318,7 @@ void* handle_user(void* arg) {
                     }
 
                     port_f = 0;
+                    */
                 }
             }
         }
@@ -303,8 +327,7 @@ void* handle_user(void* arg) {
     }
 }
 
-int auth_user(char *username)
-{
+int auth_user(char *username) {
     // open file with usernames
     FILE* fptr = fopen("../users.csv", "r");
     if(fptr == NULL) {
@@ -336,8 +359,7 @@ int auth_user(char *username)
     return auth;
 }
 
-int auth_pass(char *username, char *password)
-{
+int auth_pass(char *username, char *password) {
     // open file with usernames
     FILE* fptr = fopen("../users.csv", "r");
     if(fptr == NULL) {
@@ -412,10 +434,14 @@ int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
 void* handle_transfer(void* arg) {
     port_transfer* transfer_info = (port_transfer*)arg;
 
-    int client_sd = transfer_info->socket;
+    int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(transfer_sock < 0) {
+        perror("Socket");
+        return (void*) -1;
+    }
 
     //setsock
-	setsockopt(client_sd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); 
+	setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); 
 	struct sockaddr_in client_addr;
 	bzero(&client_addr,sizeof(client_addr));
 	client_addr.sin_family = AF_INET;
@@ -429,18 +455,23 @@ void* handle_transfer(void* arg) {
 	bzero(&my_addr,sizeof(my_addr));
 	my_addr.sin_family = AF_INET;
 	my_addr.sin_port = htons(TRANSFER_PORT);
-	bind(client_sd,(struct sockaddr *)(&my_addr),sizeof(my_addr));
+	// if(bind(transfer_sock,(struct sockaddr *)(&my_addr),sizeof(my_addr)) < 0) {
+        // perror("Binding");
+        // return (void*) -1;
+    // }
 
     // connect to client
-    if (connect(client_sd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
+    if (connect(transfer_sock, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
         perror("connection error");
         return (void*) -1;
     }
 
-    // test something
-    send(client_sd, "Hello there\n", 12, 0);
+    printf("Sending message\n");
 
-    close(client_sd);
+    // test something
+    send(transfer_sock, "Hello there\n", 12, 0);
+
+    // close(transfer_sock);
 
 }
 

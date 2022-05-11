@@ -17,11 +17,10 @@ typedef struct {
 
 typedef struct
 {
-    int cntr_socket;
     struct sockaddr_in address;
-    int counter;
     unsigned short port;
-    char *input;
+    char *data;
+    int command_code;
 
 } thread_parameters;
 

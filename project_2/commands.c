@@ -4,8 +4,7 @@
 
 #include "commands.h"
 
-int parse_command(char *msg, char *arg)
-{
+int parse_command(char *msg, char *arg) {
 
     // collect first word of msg
     char *token = strtok(msg, " ");
@@ -83,8 +82,7 @@ int parse_command(char *msg, char *arg)
     return -1;
 }
 
-int parse_response(char *msg)
-{
+int parse_response(char *msg) {
     // collect first word
     char *token = strtok(msg, " ");
     if (token == NULL)
