@@ -3,7 +3,7 @@
 
 // threads
 #define NUM_THREADS 32
-#define NUM_F_TRANSFERS 5
+#define NUM_F_TRANSFERS 10
 
 // ports
 #define CTR_PORT 2021 // 21 blocked on linux
@@ -40,5 +40,7 @@
 #define LEN_NO_SUCH_FILE 30
 #define FILE_OKAY "150 File status okay; about to open data connection\n"
 #define LEN_FILE_OKAY 52
+#define TRANSFER_ERROR "450 Requested file not taken. Too many concurrent file transfers\n"
+#define LEN_TRANSFER_ERROR 65
 
 #endif
