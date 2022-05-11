@@ -413,7 +413,7 @@ void *handle_user(void *arg)
             break;
         }
 
-        printf("Received: %s\n");
+        printf("Received: %s\n", buffer);
     }
 
     close(transfer_sock);
