@@ -50,10 +50,16 @@ int send_file(int sockfd, char *filename)
     }
     int n;
     char buffer[1024];
-    size_t bytes_read = 0;
-    // while ()
-    // {
-    // }
+    int bytes_read;
+    int bytes_sent;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+    {
+        do
+        {
+            bytes_sent += send(sockfd, buffer, bytes_read, 0);
+            bytes_read = bytes_read - bytes_sent;
+        } while (bytes_read > 0);
+    }
     printf("ending send file");
     return 1;
 }
