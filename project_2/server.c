@@ -104,9 +104,13 @@ int main() {
     bzero(busy, sizeof(busy));
 
     while (1) {
+        printf("Waiting connection\n");
         // accept new connection from client
         int client_len = sizeof(client_address);                                                      // lent of client cliend address of type sockaddr_in
         int client_sd = accept(sockfd, (struct sockaddr *)&client_address, (socklen_t *)&client_len); // accept the connection but also fill the client address with client info
+        
+        printf("Accepted new connection\n");
+
         if (client_sd < 1) {
             perror("Accept Error:");
             return -1;
@@ -123,8 +127,12 @@ int main() {
             return -1;
         }
 
+        printf("Thread started successfully\n");
+
         // close threads that finish running
         join_thread(thread_ids, busy, NUM_THREADS);
+
+        printf("Thread closed\n");
     }
 
     close(sockfd);
@@ -189,7 +197,7 @@ void* handle_user(void* arg) {
         if (!(auth1 && auth2)) {
         
             // check for receiving username
-            if(!auth1 && command == USER) {
+            if(command == USER) {
                 printf("Username: %s\n", fname);
                 auth1 = auth_user(fname);
                 printf("%d\n", auth1);
