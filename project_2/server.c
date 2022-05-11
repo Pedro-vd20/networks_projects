@@ -65,16 +65,14 @@ int main() {
 
     // socket: create the socket
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-    {
+    if (sockfd < 0) {
         perror("ERROR opening socket");
         return -1;
     }
 
     // printf("Here\n");
 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
-    {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
         perror("");
         return -1;
     }
@@ -85,8 +83,7 @@ int main() {
     server_address.sin_family = AF_INET;                // address family
     server_address.sin_port = htons(CTR_PORT);          // port
     inet_aton("127.0.0.1", &server_address.sin_addr);
-    if (bind(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
-    {
+    if (bind(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
         perror("Bind failed..:");
         return -1;
     }
@@ -94,8 +91,7 @@ int main() {
     // printf("Here 1\n");
 
     // listen on port
-    if (listen(sockfd, 5) < 0)
-    {
+    if (listen(sockfd, 5) < 0) {
         perror("Listen Error:");
         return -1;
     }
@@ -107,13 +103,11 @@ int main() {
     int busy[NUM_THREADS]; // keep track of threads currently in use
     bzero(busy, sizeof(busy));
 
-    while (1)
-    {
+    while (1) {
         // accept new connection from client
         int client_len = sizeof(client_address);                                                      // lent of client cliend address of type sockaddr_in
         int client_sd = accept(sockfd, (struct sockaddr *)&client_address, (socklen_t *)&client_len); // accept the connection but also fill the client address with client info
-        if (client_sd < 1)
-        {
+        if (client_sd < 1) {
             perror("Accept Error:");
             return -1;
         }
@@ -124,8 +118,7 @@ int main() {
         user.address = client_address;
         int t_id_index = open_thread(busy, NUM_THREADS);
         // check if index -1 (figure out how to handle later)
-        if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &user) < 0)
-        {
+        if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &user) < 0) {
             perror("multithreading");
             return -1;
         }
@@ -166,15 +159,13 @@ void* handle_user(void* arg) {
     char buffer[256]; // stores received message
     char fname[256];  // stores argument in message
     // listen for messages
-    while (1)
-    {
+    while (1) {
         bzero(buffer, sizeof(buffer));
         bzero(fname, sizeof(fname));
 
         // receive command from user
         int bytes = recv(usersd, buffer, sizeof(buffer), 0);
-        if (bytes == 0)
-        {
+        if (bytes == 0) {
             close(usersd);
             printf("Closed!\n");
             break;
@@ -189,15 +180,14 @@ void* handle_user(void* arg) {
         if(command == -1) {
             send(usersd, NOT_IMPLEMENTED, LEN_NOT_IMPLEMENTED, 0);
         }
-        else if (command == -2)
-        {
+        else if (command == -2) {
             send(usersd, ERROR, LEN_ERROR, 0);
         }
 
+        authentication:
         // authenticate user
-        if (!(auth1 && auth2))
-        {
-
+        if (!(auth1 && auth2)) {
+        
             // check for receiving username
             if(!auth1 && command == USER) {
                 printf("Username: %s\n", fname);
@@ -206,14 +196,15 @@ void* handle_user(void* arg) {
                 // error reading 
                 if(auth1 < 0) {
                     send(usersd, ERROR, LEN_ERROR, 0);
+                    auth1 = 0;
+                    auth2 = 0;
                 }
-                else if (!auth1)
-                {
+                else if (!auth1) {
                     // return auth error
                     send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+                    auth2 = 0;
                 }
-                else
-                {
+                else {
                     // username valid
                     strcpy(username, fname);
                     send(usersd, USERNAME_OK, LEN_USERNAME_OK, 0);
@@ -221,12 +212,10 @@ void* handle_user(void* arg) {
             }
 
             // check for receiving password
-            else if (auth1 && !auth2 && command == PASS)
-            {
+            else if (auth1 && !auth2 && command == PASS) {
                 auth2 = auth_pass(username, fname);
                 // error reading
-                if (auth2 < 0)
-                {
+                if (auth2 < 0) {
                     send(usersd, ERROR, LEN_ERROR, 0);
                     auth2 = 0;
                     auth1 = 0;
@@ -237,8 +226,7 @@ void* handle_user(void* arg) {
                     send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
                 }
                 // login success
-                else
-                {
+                else {
                     send(usersd, AUTHENTICATED, LEN_AUTHENTICATED, 0);
                 }
             }
@@ -254,7 +242,13 @@ void* handle_user(void* arg) {
         else {
             
             // go through all the commands
-            if(command == PORT) {
+            if(command == USER) {
+                auth1 = 0;
+                auth2 = 0;
+                goto authentication;
+            }
+            
+            else if(command == PORT) {
                 printf("Port command received\n");
                 unsigned int p1, p2;
                 if(get_port(fname, &p1, &p2) < 0) {
@@ -275,50 +269,44 @@ void* handle_user(void* arg) {
                     send(usersd, ERROR, LEN_ERROR, 0);
                 }
                 else {
+                    
+                    // flag to check if everything okay
+                    int start_connection = 1;
+
                     if(command == RETR) {
                         // check if file exists
                         FILE* ptr = fopen(fname, "r");
                         if(ptr == NULL) {
                             send(usersd, NO_SUCH_FILE, LEN_NO_SUCH_FILE, 0);
+                            start_connection = 0;
                         }
                         else {
                             fclose(ptr);
-                            send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
                         }
-                        printf("RETR\n");
-                    }
-                    else if(command == STOR) {
-                        printf("STOR\n");
-                    }
-                    else {
-                        printf("LIST\n");
                     }
                     
-                    printf("Starting new thread with client\n");
-                    // set up new thread
-                    /*
-                    int t_index = open_thread(busy, sizeof(busy));
-                    if(t_index < 0) {
-                        // to do later
-                    }
-                    else {
-                        port_transfer transfer_info;
-                        transfer_info.address = *user_addr;
-                        transfer_info.port = port;
-                        transfer_info.socket = usersd;
-                        transfer_info.command = command;
-                        transfer_info.fname = fname;
+                    send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
 
-                        if(pthread_create(thread_ids + t_index, NULL, handle_transfer, &transfer_info) < 0) {
-                            perror("multithreading");
-                            return (void*) -1;
-                        }
-
-                        join_thread(thread_ids, busy, NUM_F_TRANSFERS);
+                    int thread_index = open_thread(busy, NUM_F_TRANSFERS);
+                    if(thread_index < 0) {
+                        send(usersd, TRANSFER_ERROR, LEN_TRANSFER_ERROR, 0);
                     }
+                    
+                    port_transfer transfer_info;
+                    transfer_info.address = *user_addr;
+                    transfer_info.command = command;
+                    transfer_info.fname = fname;
+                    transfer_info.port = port;
+
+                    if(pthread_create(thread_ids + thread_index, NULL, handle_transfer, &transfer_info) < 0) {
+                        perror("Opening thread");
+                    }
+
+                    // close any open threads
+                    // printf("HERE\n");
+                    join_thread(thread_ids, busy, NUM_THREADS);
 
                     port_f = 0;
-                    */
                 }
             }
         }
@@ -432,13 +420,20 @@ int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
 }
 
 void* handle_transfer(void* arg) {
-    port_transfer* transfer_info = (port_transfer*)arg;
 
+    printf("Now in thread\n");
+    
+    port_transfer* transfer_info = (port_transfer*)arg;
+    
+    printf("HERE \n");
+    
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(transfer_sock < 0) {
         perror("Socket");
         return (void*) -1;
     }
+
+    printf("HERE 2\n");
 
     //setsock
 	setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); 
@@ -448,6 +443,9 @@ void* handle_transfer(void* arg) {
 	client_addr.sin_port = htons(transfer_info->port);
 	client_addr.sin_addr.s_addr = transfer_info->address.sin_addr.s_addr; 
 
+    printf("HERE 3\n");
+
+    printf("Set up client addess\n");
 
 	//Following code will specify the local port number (20) which will be 
 	//used for the connection to the remote machine (e.g. ftp client). 
@@ -455,23 +453,21 @@ void* handle_transfer(void* arg) {
 	bzero(&my_addr,sizeof(my_addr));
 	my_addr.sin_family = AF_INET;
 	my_addr.sin_port = htons(TRANSFER_PORT);
-	// if(bind(transfer_sock,(struct sockaddr *)(&my_addr),sizeof(my_addr)) < 0) {
-        // perror("Binding");
-        // return (void*) -1;
-    // }
-
-    // connect to client
-    if (connect(transfer_sock, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
-        perror("connection error");
+	if(bind(transfer_sock, (struct sockaddr *)(&my_addr),sizeof(my_addr)) < 0) {
+        perror("Binding");
         return (void*) -1;
     }
+    
+    printf("Gonna connect to user\n");
 
-    printf("Sending message\n");
+    // connect to client
+    while (connect(transfer_sock, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
 
-    // test something
-    send(transfer_sock, "Hello there\n", 12, 0);
+    }
 
-    // close(transfer_sock);
+    
+
+    close(transfer_sock);
 
 }
 

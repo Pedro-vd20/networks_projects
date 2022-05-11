@@ -401,10 +401,19 @@ void *handle_user(void *arg)
         return -1;
     }
 
+    printf("Port: %d\n", ntohs(server_address.sin_port));
+
     char buffer[1024];
-    bzero(buffer, sizeof(buffer));
     while (1)
     {
+        bzero(buffer, sizeof(buffer));
+
+        if (recv(server_sock, buffer, sizeof(buffer), 0) <= 0)
+        {
+            break;
+        }
+
+        printf("Received: %s\n");
     }
 
     close(transfer_sock);
