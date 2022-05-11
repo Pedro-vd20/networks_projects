@@ -75,7 +75,8 @@ Testing:
 void *handle_user(void *arg);
 int ask_server_if_file_exists(int sockfd);
 int create_tcp_connection(int port);
-int send_new_port(int sockfd, int port);
+int send_new_port(int sockfd, int new_port, char *input);
+int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port);
 
 int main(int argc, char **argv)
 {
@@ -192,6 +193,14 @@ int main(int argc, char **argv)
                 printf("%s", NOT_LOGGED_IN);
             }
         }
+        else if (command_code == QUIT)
+        {
+            // client closes connection and terminates program
+            send(sockfd, input, sizeof(input), 0);
+            printf("Connection closed.\n");
+            close(sockfd);
+            break; // ends while loop
+        }
 
         else if (is_authenticated)
         {
@@ -219,89 +228,37 @@ int main(int argc, char **argv)
 
                 if (f_exists)
                 {
-                    // set up port
+
                     unsigned short new_port = control_port + port_counter++;
 
-                    unsigned char p1 = new_port / 256; // higher byte of port
-                    unsigned char p2 = new_port % 256; // lower byte of port
-                    printf("p1 %i \n", p1);
-                    printf("p2 %i \n", p2);
-                    char portInfo[256] = "PORT 127,0,0,1,";
-
-                    char portInput[256];
-                    sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
-                    printf("portInfo:  %s", portInput);
-
-                    // Send PORT to server
-                    send(sockfd, portInput, sizeof(portInput), 0);
-
-                    // Receive port confirmation
-                    char bufferResponse[1500];
-                    bzero(bufferResponse, sizeof(bufferResponse));
-                    if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+                    // set up port
+                    int start_thread = send_new_port(sockfd, new_port, input);
+                    // if command successfully set up, start parallel connection
+                    if (start_thread)
                     {
-                        perror("recv issue, disconnecting");
-                        return (void *)-1;
-                    }
-                    printf("buffer response: %s", bufferResponse);
-
-                    // Send actual command after authenticating port
-                    if (parse_response(bufferResponse) == 200)
-                    {
-                        // thread flag
-                        int start_thread = 0;
-
-                        // send command (STOR/RETR/LIST) to server
-                        printf("Sending: %s\n", input);
-                        send(sockfd, input, sizeof(input), 0);
-
-                        // wait for server response
-                        bzero(bufferResponse, sizeof(bufferResponse));
-                        recv(sockfd, bufferResponse, sizeof(bufferResponse), 0);
-
-                        printf("Server Response: %s", bufferResponse);
-
-                        // Server says file doesn't exist
-                        if (parse_response(bufferResponse) == 550)
+                        // open thread and prepare connection
+                        printf("I am about to start thread ... \n ");
+                        int td_index = open_thread(busy, sizeof(busy));
+                        if (td_index < 0)
                         {
-                            printf("%s", bufferResponse);
+                            printf("Command failed, all threads busy\n");
                         }
-                        // server says file okay
-                        else if (parse_response(bufferResponse) == 150)
+                        // set up parameters needed for data transfer
+                        thread_parameters data_transfer_info;
+                        data_transfer_info.address = server_address;
+                        data_transfer_info.port = new_port;
+                        data_transfer_info.data = data;
+                        data_transfer_info.command_code = command_code;
+
+                        if (pthread_create(thread_ids + td_index, NULL, handle_user, &data_transfer_info) < 0)
                         {
-                            start_thread = 1;
+                            perror("Opening thread");
                         }
 
-                        // if command successfully set up, start parallel connection
-                        if (start_thread)
-                        {
-                            // open thread and prepare connection
-                            int td_index = open_thread(busy, sizeof(busy));
-                            if (td_index < 0)
-                            {
-                                printf("Command failed, all threads busy\n");
-                            }
-                            // set up parameters needed for data transfer
-                            thread_parameters data_transfer_info;
-                            data_transfer_info.address = server_address;
-                            data_transfer_info.port = new_port;
-                            data_transfer_info.data = data;
-                            data_transfer_info.command_code = command_code;
-
-                            if (pthread_create(thread_ids + td_index, NULL, handle_user, &data_transfer_info) < 0)
-                            {
-                                perror("Opening thread");
-                            }
-
-                            // close any open threads
-                            // printf("HERE\n");
-                            join_thread(thread_ids, busy, NUM_THREADS);
-                            // printf("HERE 2\n");
-                        }
-                    }
-                    else
-                    {
-                        printf("%s\nError setting port up\n", bufferResponse);
+                        // close any open threads
+                        // printf("HERE\n");
+                        join_thread(thread_ids, busy, NUM_THREADS);
+                        // printf("HERE 2\n");
                     }
                 }
             }
@@ -334,9 +291,8 @@ int main(int argc, char **argv)
 
             else if (command_code == iPWD)
             {
-            }
-            else if (command_code == QUIT)
-            {
+                if (system("pwd") == -1)
+                    printf("Invalid '!pwd' command\n");
             }
         }
     }
@@ -358,27 +314,111 @@ void *handle_user(void *arg)
     struct sockaddr_in address = client_info->address;
     char *data = client_info->data;
 
+    printf("w i data %s \n", data);
+
+    // create_data_transfer_tcp
+    int transfer_sock = create_data_transfer_tcp(&address, port);
+
+    if (command_code == STOR)
+    {
+        printf("I am inside store \n");
+        send_file(transfer_sock, data);
+    }
+    else if (command_code == RETR) //
+    {
+        printf("I am inside retrieve \n");
+        receive_file(transfer_sock, data);
+    }
+    else if (command_code == LIST)
+    {
+    }
+    return 0;
+}
+
+int send_new_port(int sockfd, int new_port, char *input)
+{
+    unsigned char p1 = new_port / 256; // higher byte of port
+    unsigned char p2 = new_port % 256; // lower byte of port
+    printf("p1 %i \n", p1);
+    printf("p2 %i \n", p2);
+    char portInfo[256] = "PORT 127,0,0,1,";
+
+    char portInput[256];
+    sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
+    printf("portInfo:  %s", portInput);
+
+    // Send PORT to server
+    send(sockfd, portInput, sizeof(portInput), 0);
+
+    // Receive port confirmation
+    char bufferResponse[1500];
+    bzero(bufferResponse, sizeof(bufferResponse));
+    if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+    {
+        perror("recv issue, disconnecting");
+        return (void *)-1;
+    }
+    printf("buffer response: %s", bufferResponse);
+
+    // thread flag
+    int start_thread = 0;
+    // Send actual command after authenticating port
+    if (parse_response(bufferResponse) == 200)
+    {
+
+        // send command (STOR/RETR/LIST) to server
+        printf("Sending: %s\n", input);
+        send(sockfd, input, sizeof(input), 0);
+
+        // wait for server response
+        bzero(bufferResponse, sizeof(bufferResponse));
+        recv(sockfd, bufferResponse, sizeof(bufferResponse), 0);
+
+        printf("Server Response: %s", bufferResponse);
+
+        // Server says file doesn't exist
+        if (parse_response(bufferResponse) == 550)
+        {
+            printf("%s", bufferResponse);
+        }
+        // server says file okay
+        else if (parse_response(bufferResponse) == 150)
+        {
+            printf("start thread = 1 \n");
+            start_thread = 1;
+        }
+    }
+    else
+    {
+        printf("%s\nError setting port up\n", bufferResponse);
+    }
+
+    return start_thread;
+}
+
+int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port) // I am passing socket as a pointer and it may cause issues
+{
     // open socket
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (transfer_sock < 0)
     {
         perror("Socket");
-        return;
+        return 0;
     }
 
     // bind socket
     if (setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
     {
-        perror("");
-        return;
+        perror("binding faield! \n");
+        return 0;
     }
 
     // bind socket
-    address.sin_port = htons(port);
-    if (bind(transfer_sock, (struct sockaddr *)&address, sizeof(address)) < 0)
+    address->sin_port = htons(port);
+    if (bind(transfer_sock, (struct sockaddr *)address, sizeof(*address)) < 0)
     {
         perror("Bind failed..:");
-        return -1;
+        return 0;
     }
 
     // printf("Here 1\n");
@@ -387,7 +427,7 @@ void *handle_user(void *arg)
     if (listen(transfer_sock, 5) < 0)
     {
         perror("Listen Error:");
-        return -1;
+        return 0;
     }
 
     struct sockaddr_in server_address;
@@ -398,133 +438,9 @@ void *handle_user(void *arg)
     if (server_sock < 1)
     {
         perror("Accept Error:");
-        return -1;
+        return 0;
     }
 
     printf("Port: %d\n", ntohs(server_address.sin_port));
-
-    char buffer[1024];
-    while (1)
-    {
-        bzero(buffer, sizeof(buffer));
-
-        if (recv(server_sock, buffer, sizeof(buffer), 0) <= 0)
-        {
-            break;
-        }
-
-        printf("Received: %s\n", buffer);
-    }
-
-    close(transfer_sock);
-
-    /*
-    // collect client info
-    thread_parameters *client_info = (thread_parameters *)arg;
-
-
-    // get port
-    printf("Parameters in thread: %d %u %s %d %d\n", socket_fd, current_port, data_transfer_command, counter_port, code_command);
-    unsigned char p1 = counter_port / 256; // higher byte of port
-    unsigned char p2 = counter_port % 256; // lower byte of port
-    printf("p1 %i \n", p1);
-    printf("p2 %i \n", p2);
-    char portInfo[256] = "PORT 127,0,0,1,";
-
-    char portInput[256];
-    sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
-    printf("portInfo:  %s", portInput);
-
-    send(socket_fd, portInput, sizeof(portInfo), 0);
-
-    // send(socket_fd, portInfo, sizeof(portInfo), 0);
-    char bufferResponse[1500];
-    if (recv(socket_fd, bufferResponse, sizeof(bufferResponse), 0) < 0)
-    {
-        perror("recv issue, disconnecting");
-        return (void*) -1;
-    }
-    printf("buffer response: %s \n", bufferResponse);
-
-    // get code of response
-    int response_code = parse_response(bufferResponse);
-
-    if(response_code == 200) {
-        // get socket
-        int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
-        if(transfer_sock < 0) {
-            perror("Error opening socket");
-            return (void*) -1;
-        }
-
-        // Control connection to the server to port 20 and local host;
-        struct sockaddr_in client_address2;
-        memset(&client_address2, 0, sizeof(client_address2));
-        client_address2.sin_family = AF_INET;
-        inet_aton("127.0.0.1", &client_address2.sin_addr);
-        client_address2.sin_port = htons(counter_port);
-
-        if (bind(transfer_sock, (struct sockaddr *)&client_address2, sizeof(client_address2)) < 0)
-        {
-            perror("Bind failed..:");
-            return (void*) -1;
-        }
-
-        // listen on port
-        if (listen(transfer_sock, 5) < 0)
-        {
-            perror("Listen Error:");
-            return (void*) -1;
-        }
-
-        bzero(bufferResponse, sizeof(bufferResponse));
-
-        struct sockaddr_in server_address2;
-        bzero(&server_address2, sizeof(server_address2));
-        int server_sd2 = accept(socket_fd, (struct sockaddr*)&server_address2, sizeof(server_address2));
-
-        printf("New connection from port %d\n", ntohs(server_address2.sin_port));
-
-        while(1) {
-            recv(server_sd2, bufferResponse, sizeof(bufferResponse), 0);
-            printf("Received on new connection: %s\n", bufferResponse);
-        }
-
-
-    }
-    else {
-        printf("Command failed: %s\n", data_transfer_command);
-    }
-    printf("finishing sending new port \n");
-    return was_succesful;
-}
-
-
-    // int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
-    // if (dataTransFD < 0)
-    // {
-    //     perror("Socket Error!");
-    //     exit(1);
-    // }
-    // // Control connection to the server to port 20 and local host;
-    // struct sockaddr_in server_address2;
-    // memset(&server_address2, 0, sizeof(server_address2));
-    // server_address2.sin_family = AF_INET;
-    // inet_aton("127.0.0.1", &server_address2.sin_addr);
-    // server_address2.sin_port = htons(2020);
-
-    // if (connect(dataTransFD, (struct sockaddr *)&server_address2, sizeof(server_address2)) < 0)
-    // {
-    //     perror("connection error");
-    //     return -1;
-    // }
-
-    printf("starting ask server \n");
-    char bufferResponse[256];
-
-    int does_file_exist;
-    while (1)
-    {
-        printf("LIST! \n");
-    }*/
+    return transfer_sock;
 }
