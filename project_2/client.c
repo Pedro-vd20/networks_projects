@@ -45,6 +45,7 @@ Testing:
 #include "threading.h"
 #include "constants.h"
 #include "user.h"
+#include "data_transfer.h"
 
 #define USERNAME_OK "331 Username OK, need password\n"
 #define AUTHENTICATED "230 User logged in, proceed\n"
@@ -72,15 +73,12 @@ Testing:
  * @param arg client information
  */
 void *handle_user(void *arg);
+int ask_server_if_file_exists(int sockfd);
+int create_tcp_connection(int port);
+int send_new_port(int sockfd, int port);
 
 int main(int argc, char **argv)
 {
-
-    // if (argc != 3)
-    // {
-    //     fprintf(stderr, "usage: %s <IP Address> <Port> \n", argv[0]);
-    //     exit(1);
-    // }
 
     // Declare and verify socket file descriptor
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -108,7 +106,7 @@ int main(int argc, char **argv)
     socklen_t clientsz = sizeof(client);
     getsockname(sockfd, (struct sockaddr *)&client, &clientsz);
 
-    printf("[%s:%u] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+    printf("[%s:%i] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
     unsigned short control_port = ntohs(client.sin_port);
     // User Interface
@@ -216,6 +214,7 @@ int main(int argc, char **argv)
                 data_transfer_info.input = input;
                 data_transfer_info.counter = port_counter;
                 data_transfer_info.command_code = command_code;
+                data_transfer_info.data = data;
                 // check if index -1 (figure out how to handle later)
                 if (pthread_create(thread_ids + t_id_index, NULL, handle_user, &data_transfer_info) < 0)
                 {
@@ -243,10 +242,16 @@ int main(int argc, char **argv)
             }
             else if (command_code == iLIST)
             {
+                if (system("ls") == -1)
+                    printf("Invalid '!ls' command\n");
             }
 
             else if (command_code == iCWD)
             {
+                if (chdir(data) == -1)
+                    printf("Invalid '!cwd' command\n");
+                else
+                    printf("Local directory successfully changed.\n");
             }
 
             else if (command_code == iPWD)
@@ -267,72 +272,178 @@ int main(int argc, char **argv)
 void *handle_user(void *arg)
 {
 
-    // collect client info
-
-    // collect client info
+    // --------------------------Handling Parameters
     thread_parameters *client_info = (thread_parameters *)arg;
     int socket_fd = client_info->control_socket;
     struct sockaddr_in *client_addr = &(client_info->address);
     unsigned short current_port = client_info->port;
     char *data_transfer_command = client_info->input;
+    char *filename = client_info->data;
     int counter_port = client_info->counter;
     int code_command = client_info->command_code;
 
-    printf("Parameters in thread: %d %u %s %d %d \n", socket_fd, current_port, data_transfer_command, counter_port, code_command);
-    unsigned char p1 = current_port / 256; // higher byte of port
-    unsigned char p2 = current_port % 256; // lower byte of port
-    printf("p1 %i \n ", p1);
-    printf("p2 %i \n", p2);
+    // ------------------------Send new client port to server and handle its response
+    int new_port = current_port + counter_port;
+    int was_port_accepted = send_new_port(socket_fd, new_port); // Should print "200 PORT command successful."
+    if (!was_port_accepted)
+        return 0; // Go back to main
+
+    //-------------------------Handle each data transfer command uniquely
+    int data_sockfd;
+    if (code_command == STOR)
+    {
+        // 1. Check if file exists
+
+        data_sockfd = create_tcp_connection(new_port);
+        if (data_sockfd < 0)
+            return 0;
+
+        // 3. Upload file
+        send_file(data_sockfd, filename);
+    }
+    else if (code_command == RETR) //
+    {
+        printf("RETR! \n"); // delete
+        // 1.  Check if the file exists in the server
+        if (ask_server_if_file_exists(socket_fd) == 0) // If file does not exist in the server then exit thread
+        {
+            printf("file does not exist \n");
+            return 0;
+        }
+
+        // 2. If the file does exist then connect to a new tcp data conection
+        data_sockfd = create_tcp_connection(new_port);
+        if (data_sockfd < 0)
+            return 0;
+
+        // 3. dowload_file from server
+        receive_file(data_sockfd, filename);
+    }
+    else if (code_command == LIST)
+    {
+        data_sockfd = create_tcp_connection(new_port);
+        if (data_sockfd < 0)
+            return 0;
+
+        printf("LIST! \n");
+    }
+    return 0;
+}
+
+int create_tcp_connection(int port)
+
+{
+    printf("Starting create_tcp \n");
+    int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
+    if (dataTransFD < 0)
+    {
+        perror("Socket Error!");
+        return 0;
+    }
+
+    // Declare Local client address to bind port number
+    struct sockaddr_in client_address;
+    memset(&client_address, 0, sizeof(client_address));
+    client_address.sin_family = AF_INET;
+    inet_aton("127.0.0.1", &client_address.sin_addr);
+    client_address.sin_port = htons(port);
+
+    if (bind(dataTransFD, (struct sockaddr *)&client_address, sizeof(client_address)) < 0)
+    {
+        perror("error binding... \n");
+        return 0;
+    }
+
+    // Control connection to the server to port 20 and local host;
+    struct sockaddr_in server_address2;
+    memset(&server_address2, 0, sizeof(server_address2));
+    server_address2.sin_family = AF_INET;
+    inet_aton("127.0.0.1", &server_address2.sin_addr);
+    server_address2.sin_port = htons(2020);
+
+    if (connect(dataTransFD, (struct sockaddr *)&server_address2, sizeof(server_address2)) < 0)
+    {
+        perror("connection error");
+        return 0;
+    }
+    printf("Ending creating tcp \n");
+    return dataTransFD;
+}
+
+int send_new_port(int sockfd, int port)
+{
+    printf("starting send new port \n");
+    unsigned char p1 = port / 256; // higher byte of port
+    unsigned char p2 = port % 256; // lower byte of port
+    printf("p1 %i \n ", p1);       // delete
+    printf("p2 %i \n", p2);        // delete
     char portInfo[256] = "PORT 127,0,0,1,";
 
     char portInput[256];
     sprintf(portInput, "%s%i,%i", portInfo, p1, p2);
-    printf("portInfo:  %s \n", portInput);
+    printf("portInfo:  %s \n", portInput); // delete
 
-    // send(socket_fd, portInfo, sizeof(portInfo), 0);
-    char bufferResponse[1500];
+    char bufferResponse[256];
+
+    int was_succesful;
     while (1)
     {
-        send(socket_fd, portInfo, sizeof(portInfo), 0);
+        send(sockfd, portInput, sizeof(portInput), 0);
 
-        if (recv(socket_fd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+        if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
         {
             perror("recv issue, disconnecting");
             break;
         }
-        printf("buffer response: %s \n", bufferResponse);
+        // parse buffer Response;
+        printf("parse_response %d \n", parse_response(bufferResponse));
+        if (parse_response(bufferResponse) == 200)
+        {
+            printf("buffer response: %s \n", bufferResponse); // This should print "200 PORT command successful."
+            was_succesful = 1;
+        }
+        else
+        {
+            printf("buffer response: %s \n", bufferResponse);
+            was_succesful = 0;
+        }
         break;
     }
+    printf("finishing sending new port \n");
+    return was_succesful;
+}
 
-    // int dataTransFD = socket(AF_INET, SOCK_STREAM, 0);
-    // if (dataTransFD < 0)
-    // {
-    //     perror("Socket Error!");
-    //     exit(1);
-    // }
-    // // Control connection to the server to port 20 and local host;
-    // struct sockaddr_in server_address2;
-    // memset(&server_address2, 0, sizeof(server_address2));
-    // server_address2.sin_family = AF_INET;
-    // inet_aton("127.0.0.1", &server_address2.sin_addr);
-    // server_address2.sin_port = htons(2020);
+int ask_server_if_file_exists(int sockfd)
+{
 
-    // if (connect(dataTransFD, (struct sockaddr *)&server_address2, sizeof(server_address2)) < 0)
-    // {
-    //     perror("connection error");
-    //     return -1;
-    // }
+    printf("starting ask server \n");
+    char bufferResponse[256];
 
-    if (code_command == STOR)
+    int does_file_exist;
+    while (1)
     {
-        printf("STRO! \n");
+        // send(sockfd, sizeof(portInput), 0);
+
+        if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+        {
+            perror("recv issue, disconnecting");
+            break;
+        }
+        // parse buffer Response;
+        printf("parse_response %d \n", parse_response(bufferResponse));
+        if (parse_response(bufferResponse) == 150)
+        {
+            does_file_exist = 1;
+        }
+        else
+        {
+
+            does_file_exist = 0;
+        }
+        printf("%s \n", bufferResponse); // This should print "200 PORT command successful."
+        break;
+        // To improve while is not that well designed
     }
-    else if (code_command == RETR)
-    {
-        printf("RETR! \n");
-    }
-    else if (code_command == LIST)
-    {
-        printf("LIST! \n");
-    }
+    printf("ending ask server \n");
+    return does_file_exist;
 }
