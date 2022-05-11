@@ -275,8 +275,28 @@ void* handle_user(void* arg) {
                     send(usersd, ERROR, LEN_ERROR, 0);
                 }
                 else {
+                    if(command == RETR) {
+                        // check if file exists
+                        FILE* ptr = fopen(fname, "r");
+                        if(ptr == NULL) {
+                            send(usersd, NO_SUCH_FILE, LEN_NO_SUCH_FILE, 0);
+                        }
+                        else {
+                            fclose(ptr);
+                            send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
+                        }
+                        printf("RETR\n");
+                    }
+                    else if(command == STOR) {
+                        printf("STOR\n");
+                    }
+                    else {
+                        printf("LIST\n");
+                    }
+                    
                     printf("Starting new thread with client\n");
                     // set up new thread
+                    /*
                     int t_index = open_thread(busy, sizeof(busy));
                     if(t_index < 0) {
                         // to do later
@@ -298,6 +318,7 @@ void* handle_user(void* arg) {
                     }
 
                     port_f = 0;
+                    */
                 }
             }
         }

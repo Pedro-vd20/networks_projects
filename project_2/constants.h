@@ -36,5 +36,9 @@
 #define LEN_AUTHENTICATED 28 
 #define PORT_SUCCESS "200 PORT command successful\n"
 #define LEN_PORT_SUCCESS 28
+#define NO_SUCH_FILE "550 No such file or directory\n"
+#define LEN_NO_SUCH_FILE 30
+#define FILE_OKAY "150 File status okay; about to open data connection\n"
+#define LEN_FILE_OKAY 52
 
 #endif
