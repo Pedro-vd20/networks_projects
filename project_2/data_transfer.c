@@ -21,7 +21,7 @@ int receive_file(int sockfd, char *filename)
     while (1)
     {
         n = recv(sockfd, buffer, 1024, 0);
-        printf("n: %d \n", n);
+        printf("n: %zu \n", n);
         if (n <= 0)
         {
             fclose(fp);
@@ -51,9 +51,9 @@ int send_file(int sockfd, char *filename)
     int n;
     char buffer[1024];
     size_t bytes_read = 0;
-    while ()
-    {
-    }
+    // while ()
+    // {
+    // }
     printf("ending send file");
     return 1;
 }
