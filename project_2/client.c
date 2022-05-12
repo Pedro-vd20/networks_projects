@@ -269,44 +269,44 @@ int main(int argc, char **argv)
             }
             else if (command_code == iLIST)
             {
-                char ls_command[256];
-                strcpy(ls_command, "ls ");
+                // char ls_command[256];
+                // strcpy(ls_command, "ls ");
 
-                char *p = get_path(&path);
+                // char *p = get_path(&path);
 
-                strcat(ls_command, p);
+                // strcat(ls_command, p);
 
-                if (system(ls_command) == -1)
+                if (system("ls") == -1)
                     printf("Invalid '!ls' command\n");
-                free(p);
+                // free(p);
             }
 
             else if (command_code == iCWD)
             {
-                char cwd_path[256];
-                strcpy(cwd_path, "./");
-                char *p = get_path(&path);
-                printf("path: %s \n", p);
-                strcat(cwd_path, p);
-                strcat(cwd_path, data);
+                add_node(&path, data);
+
+                char *cwd_path = get_path(&path);
+
                 printf("cwd_path %s \n", cwd_path);
                 if (chdir(cwd_path) == -1)
                     printf("Invalid '!cwd' command\n");
                 else
                     printf("Local directory successfully changed.\n");
 
-                free(p);
+                free(cwd_path);
             }
 
             else if (command_code == iPWD)
             {
-                char pwd_path[256];
-                strcpy(pwd_path, "pwd ");
-                char *p = get_path(&path);
-                strcat(pwd_path, p);
-                printf("pwd_path: %s \n", pwd_path);
-                if (system(pwd_path) == -1)
+                // char pwd_path[256];
+                // strcpy(pwd_path, "pwd ");
+                // char *p = get_path(&path);
+                // strcat(pwd_path, p);
+                // printf("pwd_path: %s \n", pwd_path);
+                if (system("pwd") == -1)
                     printf("Invalid '!pwd' command\n");
+
+                // free(pwd_path)
             }
         }
     }
@@ -343,7 +343,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
         if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
         {
             perror("recv issue, disconnecting");
-            break;
+            return;
         }
         printf("%s\n", bufferResponse);
         bzero(&bufferResponse, sizeof(bufferResponse));
