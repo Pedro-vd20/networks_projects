@@ -71,7 +71,7 @@ Testing:
  *
  * @param arg client information
  */
-void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char* data);
+void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char *data);
 int ask_server_if_file_exists(int sockfd);
 int create_tcp_connection(int port);
 int send_new_port(int sockfd, int new_port, char *input);
@@ -130,9 +130,10 @@ int main(int argc, char **argv)
     int is_authenticated = 0;
     int is_username_ok = 0;
     int port_counter = 1;
-    pthread_t thread_ids[NUM_THREADS];
-    int busy[NUM_THREADS]; // keep track of threads currently in use
-    bzero(busy, sizeof(busy));
+    char first_buffer[256];
+    bzero(first_buffer, 256);
+    recv(sockfd, first_buffer, 256, 0);
+    printf("%s \n", first_buffer);
 
     while (1)
     {
@@ -239,7 +240,8 @@ int main(int argc, char **argv)
                         int pid = -1;
 
                         pid = fork();
-                        if(pid == 0) {
+                        if (pid == 0)
+                        {
                             handle_transfer(new_port, server_address, command_code, data);
                             return 0;
                         }
@@ -287,7 +289,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char* data)
+void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char *data)
 {
     printf("Now in new thread\n");
 
@@ -308,9 +310,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     }
     else if (command_code == LIST)
     {
-
     }
-    return 0;
 }
 
 int send_new_port(int sockfd, int new_port, char *input)
@@ -320,7 +320,8 @@ int send_new_port(int sockfd, int new_port, char *input)
     printf("p1 %i \n", p1);
     printf("p2 %i \n", p2);
     char portInfo[256] = "PORT 127,0,0,1,";
-
+    char user_input[256];
+    strcpy(user_input, input);
     char portInput[256];
     sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
     printf("portInfo:  %s", portInput);
@@ -345,8 +346,9 @@ int send_new_port(int sockfd, int new_port, char *input)
     {
 
         // send command (STOR/RETR/LIST) to server
-        printf("Sending: %s\n", input);
-        send(sockfd, input, sizeof(input), 0);
+        printf("Sending: %s\n", user_input);
+
+        send(sockfd, user_input, sizeof(user_input), 0);
 
         // wait for server response
         bzero(bufferResponse, sizeof(bufferResponse));
@@ -357,7 +359,7 @@ int send_new_port(int sockfd, int new_port, char *input)
         // Server says file doesn't exist
         if (parse_response(bufferResponse) == 550)
         {
-            printf("%s", bufferResponse);
+            printf("%s \n", bufferResponse);
         }
         // server says file okay
         else if (parse_response(bufferResponse) == 150)
@@ -402,16 +404,19 @@ int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port) /
     // printf("Here 1\n");
 
     // listen on port
+    printf("about to listen... \n");
     if (listen(transfer_sock, 5) < 0)
     {
         perror("Listen Error:");
         return 0;
     }
+    printf("after listening... \n"); //##########DELETE
 
     struct sockaddr_in server_address;
 
     // accept new connection from server
     int server_len = sizeof(server_address);                                                               // lent of client cliend address of type sockaddr_in
+    printf("before accepting ...\n");                                                                      //#########DELETE
     int server_sock = accept(transfer_sock, (struct sockaddr *)&server_address, (socklen_t *)&server_len); // accept the connection but also fill the client address with client info
     if (server_sock < 1)
     {
