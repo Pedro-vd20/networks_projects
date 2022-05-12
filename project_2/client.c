@@ -130,9 +130,10 @@ int main(int argc, char **argv)
     int is_authenticated = 0;
     int is_username_ok = 0;
     int port_counter = 1;
-    pthread_t thread_ids[NUM_THREADS];
-    int busy[NUM_THREADS]; // keep track of threads currently in use
-    bzero(busy, sizeof(busy));
+    char first_buffer[256];
+    bzero(first_buffer, 256);
+    recv(sockfd, first_buffer, 256, 0);
+    printf("%s \n", first_buffer);
 
     while (1)
     {
