@@ -40,6 +40,15 @@ int auth_user(char *username);
 int auth_pass(char *username, char *password);
 
 /**
+ * @brief changes the current working directory 
+ * 
+ * @param path current path
+ * @param new_path new path to append
+ * @return int 0 if success
+ */
+int parse_dir(linked_list* path, char* new_path);
+
+/**
  * @brief Get the port from port command
  * 
  * @param arg info passed by port command in form h1,h2,h3,h4,p1,p2 
@@ -299,7 +308,40 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
         }
 
         else if(command == CWD) {
-            printf("CWD command\n");
+            printf("Changing directory to: %s\n", fname);
+
+            // construct new path
+            char ls_command[1024];
+            bzero(ls_command, sizeof(ls_command));
+            
+            char* p = get_path(&path);
+            strcpy(ls_command, "ls ");
+            strcat(ls_command, p);
+            strcat(ls_command, fname);
+
+            free(p);
+
+            if(system(ls_command) != 0) {
+                send(usersd, ERROR, LEN_ERROR, 0);
+            }
+            else {
+                if(parse_dir(&path, fname) == 0) {
+                    print(&path);
+
+                    char response[256];
+                    bzero(response, sizeof(response));
+                    strcpy(response, CWD_CODE);
+                    
+                    p = get_path(&path);
+                    strcat(response, p);
+                    strcat(response, ".\n");
+                    free(p);
+                    send(usersd, response, strlen(response), 0);
+                }
+                else {
+                    send(usersd, ERROR, LEN_ERROR, 0);
+                }
+            }
         }
         
         else if(command == PWD) {
@@ -316,25 +358,10 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             free(p);
         }
 
-        
+        else if(command == QUIT) {
+            send(usersd, QUIT_MSG, LEN_QUIT_MSG, 0);
+        }
         /*
-        else {
-            
-            else if(command == PORT) {
-                printf("Port command received\n");
-                unsigned int p1, p2;
-                if(get_port(fname, &p1, &p2) < 0) {
-                    // error getting port
-                    printf("Error with port\n");
-                    send(usersd, ERROR, LEN_ERROR, 0);
-                }
-                else {
-                    port_f = 1;
-                    port = (p1 * 256) + p2;
-                    printf("Port: %ld\n", port);
-                    send(usersd, PORT_SUCCESS, LEN_PORT_SUCCESS, 0);
-                }
-            }
             else if(command == RETR || command == STOR || command == LIST) {
                 if(!port_f) {
                     printf("Port not specified\n");
@@ -532,44 +559,29 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
 
 }
 
-// int main() {
+int parse_dir(linked_list* path, char* new_path) {
+    // break down path by /
+    char* token = strtok(new_path, "/");
 
-/*
-Bind socket
+    do {
+        if(strcmp(token, "..") == 0) {
+            if(path->size > 1) {
+                remove_node(path);
+            }
+            else {
+                return -1;
+            }
+        }
+        else {
+            char* temp = malloc(64);
+            bzero(temp, sizeof(temp));
+            strcpy(temp, token);
+            add_node(path, temp);
+        }
 
-Start listening port 21
-
-multithread response
-
-    listen for user commands
-
-    Check user commands (and authenticate)
-
-    Perform action
-
-    Return message
-
-    IF FILE TRANSFER
-
-        Start new thread
-
-        Receive user port
-
-        Start comm with port 20
-
-        Send file
-
-        Close port
-
-        Close thread
-
-    IF END COMM
-
-        close port
-
-        close thread
-
-*/
-
-// return 0;
-// }
+        // get new token
+        token = strtok(NULL, "/");
+    } while(token != NULL);
+    
+    return 0;
+}

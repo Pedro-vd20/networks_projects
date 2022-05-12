@@ -84,8 +84,6 @@ char* get_path(linked_list* ls) {
         curr = curr->next;
     }
 
-    strcat(path, "\n");
-
     return path;
 }
 

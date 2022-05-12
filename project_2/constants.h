@@ -45,6 +45,9 @@
 #define SERVER_READY "220 Service ready for new user.\n"
 #define LEN_SERVER_READY 32
 #define PWD_CODE "257 "
+#define CWD_CODE "200 directory changed to "
+#define QUIT_MSG "221 Service closing control connection\n"
+#define LEN_QUIT_MSG 39
 
 // before sending anything, you gotta wait and recv for this 220 command
 
