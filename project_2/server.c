@@ -10,6 +10,7 @@
 #include "constants.h"
 #include "user.h"
 #include "commands.h"
+#include "linked_list.h"
 
 
 /**
@@ -126,15 +127,12 @@ int main() {
 
 
 void handle_user(int usersd, struct sockaddr_in* user_addr) {
-    // SERVER IS SUPPOSED TO SEND A 220 FIRST!!!!!!
 
     printf("Connection established with user %d\n", usersd);
     printf("Their port: %d\n", ntohs(user_addr->sin_port));
 
-    // threads for file transfer
-    pthread_t thread_ids[NUM_F_TRANSFERS];
-    int busy[NUM_F_TRANSFERS];
-    bzero(busy, sizeof(busy));
+    // tell user the server is ready
+    send(usersd, SERVER_READY, LEN_SERVER_READY, 0);
 
     // authenticate user
     int auth1 = 0; // flag for username
@@ -142,12 +140,15 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
     int port_f = 0; // checks if user has already sent port info
     unsigned long port; // holds port info
     char username[50];
+    // linked_list path;
     bzero(username, sizeof(username));
 
     char buffer[256]; // stores received message
     char fname[256];  // stores argument in message
     // listen for messages
     while (1) {
+        printf("\n");
+        
         bzero(buffer, sizeof(buffer));
         bzero(fname, sizeof(fname));
 
@@ -159,7 +160,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             break;
         }
 
-        printf("Received: %s\n", buffer);
+        printf("Received: %s", buffer);
 
         int command = parse_command(buffer, fname);
 
@@ -172,69 +173,141 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             send(usersd, ERROR, LEN_ERROR, 0);
         }
 
-        authentication:
-        // authenticate user
-        if (!(auth1 && auth2)) {
-        
-            // check for receiving username
-            if(command == USER) {
-                printf("Username: %s\n", fname);
-                auth1 = auth_user(fname);
-                printf("%d\n", auth1);
-                // error reading 
-                if(auth1 < 0) {
-                    send(usersd, ERROR, LEN_ERROR, 0);
-                    auth1 = 0;
-                    auth2 = 0;
-                }
-                else if (!auth1) {
-                    // return auth error
-                    send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
-                    auth2 = 0;
-                }
-                else {
-                    // username valid
-                    strcpy(username, fname);
-                    send(usersd, USERNAME_OK, LEN_USERNAME_OK, 0);
-                }
-            }
+        // go through possible commands
+        // authentication
+        else if(command == USER) {
+            bzero(username, sizeof(username));
+            // if user already logged in, sign out
+            auth1 = 0;
+            auth2 = 0;
+            // delete_list(&path);
 
-            // check for receiving password
-            else if (auth1 && !auth2 && command == PASS) {
+            // check if username valid
+            printf("Username: %s\n", fname);
+            auth1 = auth_user(fname);
+            printf("%d\n", auth1);
+            
+            // error reading 
+            if(auth1 < 0) {
+                send(usersd, ERROR, LEN_ERROR, 0);
+                auth1 = 0;
+                auth2 = 0;
+            }
+            // username not matched
+            else if (auth1 == 0) {
+                // return auth error
+                printf("Username not matched\n");
+                send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+                auth2 = 0;
+            }
+            // user authenticated
+            else {
+                // username valid
+                printf("Successful username verification\n");
+                strcpy(username, fname);
+                send(usersd, USERNAME_OK, LEN_USERNAME_OK, 0);
+            }
+        }
+        
+        // password
+        else if(command == PASS) {
+            // if no username
+            if(!auth1) {
+                auth1 = 0;
+                auth2 = 0;
+                printf("No username provided\n");
+                send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+            }
+            // if already authenticated
+            else if(auth2) {
+                auth1 = 0;
+                auth2 = 0;
+                // delete_list(&path);
+                bzero(username, sizeof(username));
+                send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+            }
+            else if(!auth2) {
+                // check password on csv
                 auth2 = auth_pass(username, fname);
+
                 // error reading
                 if (auth2 < 0) {
                     send(usersd, ERROR, LEN_ERROR, 0);
                     auth2 = 0;
                     auth1 = 0;
                 }
+
                 // not authenticated
                 else if(!auth2) {
+                    printf("Incorrect password\n");
                     auth1 = 0;
                     send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
                 }
                 // login success
                 else {
+                    printf("Successful login\n");
                     send(usersd, AUTHENTICATED, LEN_AUTHENTICATED, 0);
-                }
-            }
-            // Not logged in / logging in
-            else {
-                auth1 = 0;
-                auth2 = 0;
-                send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
-            }
 
-            continue;
-        }
-        else {
-            
-            // go through all the commands
-            if(command == USER) {
-                auth1 = 0;
-                auth2 = 0;
-                goto authentication;
+                    // set up directory info
+                    char* p = malloc(256);
+                    strcpy(p, username);
+                    // add_node(&path, p);
+                } 
             }
+        }
+
+        // check if not authenticated
+        else if(!auth1 && !auth2) {
+            printf("Need to sign in first\n");
+            send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
+        }
+
+        // all other commands (if this part is reached, user must be authenticated)
+        else if(command == PORT) {
+            printf("Port command received\n");
+            unsigned int p1, p2;
+
+            // collect port
+            if(get_port(fname, &p1, &p2) < 0) {
+                // error getting port
+                printf("Error with port\n");
+                send(usersd, ERROR, LEN_ERROR, 0);
+                port_f = 0;
+            }
+            
+            else {
+                // successfully get port
+                port_f = 1;
+                port = (p1 * 256) + p2;
+                printf("Port: %ld\n", port);
+                send(usersd, PORT_SUCCESS, LEN_PORT_SUCCESS, 0);
+            }          
+        }
+
+        else if(command == STOR) {
+            printf("STOR command\n");   
+        }
+
+        else if(command == RETR) {
+            printf("RETR command\n");
+        }
+
+        else if(command == LIST) {
+            printf("LIST command\n");
+        }
+
+        else if(command == CWD) {
+            printf("CWD command\n");
+        }
+        
+        else if(command == PWD) {
+            // print(&path);
+            send(usersd, NOT_IMPLEMENTED, LEN_NOT_IMPLEMENTED, 0);
+        }
+
+        
+        /*
+        else {
             
             else if(command == PORT) {
                 printf("Port command received\n");
@@ -286,10 +359,12 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
                     port_f = 0;
                 }
             }
-        }
+        }*/
     
 
     }
+
+    printf("Out of loop!\n");
 }
 
 int auth_user(char *username) {
