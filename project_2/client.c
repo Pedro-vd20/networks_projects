@@ -158,6 +158,7 @@ int main(int argc, char **argv)
         {
 
             send(sockfd, input, sizeof(input), 0);
+            bzero(input, sizeof(input));
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
                 perror("recv error!!");
@@ -177,6 +178,7 @@ int main(int argc, char **argv)
         else if (command_code == PASS && strlen(data) > 0 && is_username_ok)
         {
             send(sockfd, input, sizeof(input), 0);
+            bzero(response, sizeof(response));
             if (recv(sockfd, response, sizeof(response), 0) < 0)
             {
                 perror("recv error!!");
@@ -253,6 +255,7 @@ int main(int argc, char **argv)
             {
                 send(sockfd, input, sizeof(input), 0);
                 char bufferResponse[1500];
+                bzero(bufferResponse, sizeof(bufferResponse));
                 if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
                 {
                     perror("recv issue, disconnecting");
