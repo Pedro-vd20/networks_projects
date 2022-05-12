@@ -45,6 +45,7 @@ Testing:
 #include "constants.h"
 #include "user.h"
 #include "data_transfer.h"
+#include "linked_list.h"
 
 #define USERNAME_OK "331 Username OK, need password\n"
 #define AUTHENTICATED "230 User logged in, proceed\n"
@@ -81,6 +82,8 @@ int main(int argc, char **argv)
 {
 
     // Declare and verify socket file descriptor
+    linked_list path;
+    init(&path);
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
     {
@@ -266,8 +269,16 @@ int main(int argc, char **argv)
             }
             else if (command_code == iLIST)
             {
-                if (system("ls") == -1)
+                char ls_command[256];
+                strcpy(ls_command, "ls");
+
+                char *p = get_path(&path);
+
+                strcat(ls_command, p);
+
+                if (system(ls_command) == -1)
                     printf("Invalid '!ls' command\n");
+                free(p);
             }
 
             else if (command_code == iCWD)
