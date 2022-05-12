@@ -140,7 +140,8 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
     int port_f = 0; // checks if user has already sent port info
     unsigned long port; // holds port info
     char username[50];
-    // linked_list path;
+    linked_list path;
+    init(&path);
     bzero(username, sizeof(username));
 
     char buffer[256]; // stores received message
@@ -160,7 +161,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             break;
         }
 
-        printf("Received: %s", buffer);
+        printf("Received: %s\n", buffer);
 
         int command = parse_command(buffer, fname);
 
@@ -180,7 +181,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             // if user already logged in, sign out
             auth1 = 0;
             auth2 = 0;
-            // delete_list(&path);
+            delete_list(&path);
 
             // check if username valid
             printf("Username: %s\n", fname);
@@ -222,7 +223,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             else if(auth2) {
                 auth1 = 0;
                 auth2 = 0;
-                // delete_list(&path);
+                delete_list(&path);
                 bzero(username, sizeof(username));
                 send(usersd, NOT_LOGGED_IN, LEN_NOT_LOGGED_IN, 0);
             }
@@ -251,7 +252,8 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
                     // set up directory info
                     char* p = malloc(256);
                     strcpy(p, username);
-                    // add_node(&path, p);
+                    add_node(&path, p);
+                    // printf("HERE\n");
                 } 
             }
         }
@@ -301,8 +303,17 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
         }
         
         else if(command == PWD) {
-            // print(&path);
-            send(usersd, NOT_IMPLEMENTED, LEN_NOT_IMPLEMENTED, 0);
+            // build path
+            char* p = get_path(&path);
+            char response[1024];
+            bzero(response, sizeof(response));
+
+            strcat(response, PWD_CODE);
+            strcat(response, p);
+
+            send(usersd, response, strlen(response), 0);
+
+            free(p);
         }
 
         

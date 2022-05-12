@@ -5,6 +5,18 @@
 
 #include "linked_list.h"
 
+int init(linked_list* ls) {
+    if(ls == NULL) {
+        return -1;
+    }
+    
+    ls->head = NULL;
+    ls->tail = NULL;
+    ls->size = 0;
+
+    return 0;
+}
+
 // add to the end of the list
 int add_node(linked_list* ls, char* path) {
     if(is_empty(ls)) {
@@ -71,6 +83,8 @@ char* get_path(linked_list* ls) {
 
         curr = curr->next;
     }
+
+    strcat(path, "\n");
 
     return path;
 }

@@ -13,6 +13,9 @@ typedef struct {
     int size;
 } linked_list;
 
+// initialize values for list
+int init(linked_list*);
+
 // add to the end of the list
 int add_node(linked_list*, char*);
 

@@ -44,6 +44,7 @@
 #define LEN_TRANSFER_ERROR 65
 #define SERVER_READY "220 Service ready for new user.\n"
 #define LEN_SERVER_READY 32
+#define PWD_CODE "257 "
 
 // before sending anything, you gotta wait and recv for this 220 command
 
