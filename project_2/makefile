@@ -1,7 +1,7 @@
 all: server client
 
-client: client.o commands.o data_transfer.o
-	gcc client.o commands.o  data_transfer.o -o client/client
+client: client.o commands.o data_transfer.o linked_list.o
+	gcc client.o commands.o data_transfer.o linked_list.o -o client/client
 
 client.o: client.c constants.h 
 	gcc -c client.c
