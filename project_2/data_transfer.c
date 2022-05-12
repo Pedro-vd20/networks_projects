@@ -9,19 +9,27 @@ int receive_file(int sockfd, char *filename)
 {
     printf("starting receive file .... \n"); //**********DELETE
     FILE *fp;
-    fp = fopen(filename, "w");
+    fp = fopen(filename, "wb");
     if (fp == NULL)
     {
         perror("file nout found");
-        return -1;
+        return 0;
     }
     size_t n; // Does this have to int or size_t?
     char buffer[1024];
     int offset = 0; // Does this have to int or size_t?
+    char response[256];
+    int code;
+
     while (1)
     {
-        n = recv(sockfd, buffer, 1024, 0);
-        printf("n: %zu \n", n);
+        int32_t temp_size;
+        int size;
+        bzero(&temp_size, sizeof(temp_size));
+        recv(sockfd, &temp_size, sizeof(temp_size), 0);
+        size = ntohl(temp_size);
+        bzero(buffer, sizeof(buffer));
+        n = recv(sockfd, buffer, size, 0);
         if (n <= 0)
         {
             fclose(fp);
@@ -31,9 +39,8 @@ int receive_file(int sockfd, char *filename)
         fseek(fp, offset, SEEK_SET);
         fwrite(buffer, 1, n, fp); // is n equal to 1024 in most cases?
         offset += n;
-        bzero(buffer, 1024);
     }
-    printf("ending receive file .... \n"); //**********DELETE
+    fclose(fp);
     return 0;
 }
 
@@ -46,7 +53,7 @@ int send_file(int sockfd, char *filename)
     if (fp == NULL)
     {
         perror("file nout found");
-        return -1;
+        return 0;
     }
     int n;
     char buffer[1024];
@@ -54,12 +61,27 @@ int send_file(int sockfd, char *filename)
     int bytes_sent;
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0)
     {
+
+        int i = 0;
         do
         {
+            int32_t convert_size = htonl(bytes_read);
+            send(sockfd, &convert_size, sizeof(convert_size), 0);
             bytes_sent += send(sockfd, buffer, bytes_read, 0);
+
             bytes_read = bytes_read - bytes_sent;
+
         } while (bytes_read > 0);
+        bzero(buffer, sizeof(buffer));
     }
-    printf("ending send file");
-    return 1;
+
+    char success_response[256] = "226 Transfer completed.";
+    int bytes_response = 23;
+    int32_t response_size = htonl(bytes_response);
+    send(sockfd, &response_size, sizeof(response_size), 0);
+    send(sockfd, success_response, sizeof(success_response), 0);
+    printf("Done sending file \n");
+    fclose(fp);
+
+    return 0;
 }
