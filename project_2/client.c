@@ -269,16 +269,16 @@ int main(int argc, char **argv)
             }
             else if (command_code == iLIST)
             {
-                // char ls_command[256];
-                // strcpy(ls_command, "ls ");
+                char ls_command[256];
+                strcpy(ls_command, "ls ");
 
-                // char *p = get_path(&path);
+                char *p = get_path(&path);
 
-                // strcat(ls_command, p);
+                strcat(ls_command, p);
 
-                if (system("ls") == -1)
+                if (system(ls_command) == -1)
                     printf("Invalid '!ls' command\n");
-                // free(p);
+                free(p);
             }
 
             else if (command_code == iCWD)
@@ -298,15 +298,15 @@ int main(int argc, char **argv)
 
             else if (command_code == iPWD)
             {
-                // char pwd_path[256];
-                // strcpy(pwd_path, "pwd ");
-                // char *p = get_path(&path);
-                // strcat(pwd_path, p);
-                // printf("pwd_path: %s \n", pwd_path);
-                if (system("pwd") == -1)
+                char pwd_path[256];
+                strcpy(pwd_path, "pwd ");
+                char *p = get_path(&path);
+                strcat(pwd_path, p);
+                printf("pwd_path: %s \n", pwd_path);
+                if (system(pwd_path) == -1)
                     printf("Invalid '!pwd' command\n");
 
-                // free(pwd_path)
+                free(pwd_path)
             }
         }
     }
