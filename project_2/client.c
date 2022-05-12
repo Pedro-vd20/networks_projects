@@ -284,9 +284,10 @@ int main(int argc, char **argv)
             else if (command_code == iCWD)
             {
                 char cwd_path[256];
+                strcpy(cwd_path, "./");
                 char *p = get_path(&path);
                 printf("path: %s \n", p);
-                strcpy(cwd_path, p);
+                strcat(cwd_path, p);
                 strcat(cwd_path, data);
                 printf("cwd_path %s \n", cwd_path);
                 if (chdir(cwd_path) == -1)
@@ -337,6 +338,15 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     }
     else if (command_code == LIST)
     {
+        char bufferResponse[1500];
+        bzero(bufferResponse, sizeof(bufferResponse));
+        if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
+        {
+            perror("recv issue, disconnecting");
+            break;
+        }
+        printf("%s\n", bufferResponse);
+        bzero(&bufferResponse, sizeof(bufferResponse));
     }
 }
 
