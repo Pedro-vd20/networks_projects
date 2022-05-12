@@ -113,10 +113,9 @@ int main(int argc, char **argv)
 
     unsigned short control_port = ntohs(client.sin_port);
     // User Interface
-    printf("control socket connected!");
+    printf("control socket connected!\n");
     // menu
-    printf("\n");
-    printf("Hello!! Please Authenticate first  \n");
+    printf("Hello!! Please Authenticate to run server commands  \n");
     printf("1. type \"USER\" followed by a space and your username \n");
     printf("2. type \"PASS\" followed by a space and your password \n");
     printf("\n");
@@ -128,15 +127,13 @@ int main(int argc, char **argv)
     printf("\"CWD\"  to change the current server directory \n");
     printf("\"PWD\" to display the current server directory \n");
 
-    printf("Add \"!\" before the last three commands to apply them locally \n");
+    printf("Add \"!\" before the last three commands to apply them locally \n\n");
 
-    int is_authenticated = 0;
-    int is_username_ok = 0;
     int port_counter = 1;
     char first_buffer[256];
     bzero(first_buffer, 256);
     recv(sockfd, first_buffer, 256, 0);
-    printf("%s \n", first_buffer);
+    printf("%s", first_buffer);
 
     while (1)
     {
@@ -157,7 +154,7 @@ int main(int argc, char **argv)
 
         char response[100];
 
-        if (command_code == USER && strlen(data) > 0)
+        if (command_code == USER)
         {
 
             send(sockfd, input, sizeof(input), 0);
@@ -168,17 +165,9 @@ int main(int argc, char **argv)
                 break;
             }
 
-            if (parse_response(response) == 331)
-            {
-                is_username_ok = 1;
-                printf("%s", USERNAME_OK);
-            }
-            else
-            {
-                printf("Username not registered! \n");
-            }
+            printf("%s", response);
         }
-        else if (command_code == PASS && strlen(data) > 0 && is_username_ok)
+        else if (command_code == PASS)
         {
             send(sockfd, input, sizeof(input), 0);
             bzero(response, sizeof(response));
@@ -188,127 +177,132 @@ int main(int argc, char **argv)
                 break;
             }
 
-            if (parse_response(response) == 230)
-            {
-                printf("%s", AUTHENTICATED);
-                is_authenticated = 1;
-            }
-            else if (parse_response(response) == 530)
-            {
-                printf("%s", NOT_LOGGED_IN);
-            }
+            printf("%s", response);
         }
         else if (command_code == QUIT)
         {
             // client closes connection and terminates program
             send(sockfd, input, sizeof(input), 0);
-            printf("Connection closed.\n");
-            close(sockfd);
-            break; // ends while loop
-        }
+            
+            bzero(response, sizeof(response));
+            if(recv(sockfd, response, sizeof(response), 0) < 0) {
+                perror("recv error!!");
+                break;
+            }
 
-        else if (is_authenticated)
+            printf("%s", response);
+
+            if(parse_response(response) == 221) {
+                close(sockfd);
+                break; // ends while loop
+            }
+            else {
+                printf("Error sending QUIT command\n");
+            }
+        }
+        else if (command_code == STOR || command_code == RETR || command_code == LIST)
         {
-
-            if (command_code == STOR || command_code == RETR || command_code == LIST)
+            // flag (only relevant for STOR)
+            int f_exists = 1;
+            if (command_code == STOR)
             {
-                // flag (only relevant for STOR)
-                int f_exists = 1;
-                if (command_code == STOR)
+                FILE *ptr = fopen(data, "r");
+                printf("File to send: %s\n", data);
+
+                // check if file exists
+                if (ptr == NULL)
                 {
-                    FILE *ptr = fopen(data, "r");
-                    printf("File to send: %s\n", data);
-
-                    // check if file exists
-                    if (ptr == NULL)
-                    {
-                        f_exists = 0;
-                        printf("%s", NO_SUCH_FILE);
-                    }
-                    else
-                    {
-                        fclose(ptr);
-                    }
+                    f_exists = 0;
+                    printf("%s", NO_SUCH_FILE);
                 }
-
-                if (f_exists)
-                {
-
-                    unsigned short new_port = control_port + port_counter++;
-
-                    // set up port
-                    int start_thread = send_new_port(sockfd, new_port, input);
-                    // if command successfully set up, start parallel connection
-                    if (start_thread)
-                    {
-
-                        int pid = -1;
-
-                        pid = fork();
-                        if (pid == 0)
-                        {
-                            handle_transfer(new_port, server_address, command_code, data);
-                            return 0;
-                        }
-                    }
-                }
-            }
-
-            else if (command_code == PWD || command_code == CWD)
-            {
-                send(sockfd, input, sizeof(input), 0);
-                char bufferResponse[1500];
-                bzero(bufferResponse, sizeof(bufferResponse));
-                if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
-                {
-                    perror("recv issue, disconnecting");
-                    break;
-                }
-                printf("%s\n", bufferResponse);
-                bzero(&bufferResponse, sizeof(bufferResponse));
-            }
-            else if (command_code == iLIST)
-            {
-                char ls_command[256];
-                strcpy(ls_command, "ls ");
-
-                char *p = get_path(&path);
-
-                strcat(ls_command, p);
-
-                if (system(ls_command) == -1)
-                    printf("Invalid '!ls' command\n");
-                free(p);
-            }
-
-            else if (command_code == iCWD)
-            {
-                add_node(&path, data);
-
-                char *cwd_path = get_path(&path);
-
-                printf("cwd_path %s \n", cwd_path);
-                if (chdir(cwd_path) == -1)
-                    printf("Invalid '!cwd' command\n");
                 else
-                    printf("Local directory successfully changed.\n");
-
-                free(cwd_path);
+                {
+                    fclose(ptr);
+                }
             }
 
-            else if (command_code == iPWD)
+            if (f_exists)
             {
-                char pwd_path[256];
-                strcpy(pwd_path, "pwd ");
-                char *p = get_path(&path);
-                strcat(pwd_path, p);
-                printf("pwd_path: %s \n", pwd_path);
-                if (system(pwd_path) == -1)
-                    printf("Invalid '!pwd' command\n");
 
-                free(pwd_path)
+                unsigned short new_port = control_port + port_counter++;
+
+                // set up port
+                int start_thread = send_new_port(sockfd, new_port, input);
+                // if command successfully set up, start parallel connection
+                if (start_thread)
+                {
+
+                    int pid = -1;
+
+                    pid = fork();
+                    if (pid == 0)
+                    {
+                        handle_transfer(new_port, server_address, command_code, data);
+                        return 0;
+                    }
+                }
             }
         }
+
+        else if (command_code == PWD || command_code == CWD)
+        {
+            send(sockfd, input, sizeof(input), 0);
+            char bufferResponse[1500];
+            bzero(bufferResponse, sizeof(bufferResponse));
+            if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
+            {
+                perror("recv issue, disconnecting");
+                break;
+            }
+            printf("%s\n", bufferResponse);
+            
+            if(parse_response(bufferResponse) == 150) {
+                // start thread here
+            }
+            
+        }
+        else if (command_code == iLIST)
+        {
+            char ls_command[256];
+            strcpy(ls_command, "ls ");
+
+            char *p = get_path(&path);
+
+            strcat(ls_command, p);
+
+            if (system(ls_command) == -1)
+                printf("Invalid '!ls' command\n");
+            free(p);
+        }
+
+        else if (command_code == iCWD)
+        {
+            add_node(&path, data);
+
+            char *cwd_path = get_path(&path);
+
+            printf("cwd_path %s \n", cwd_path);
+            if (chdir(cwd_path) == -1)
+                printf("Invalid '!cwd' command\n");
+            else
+                printf("Local directory successfully changed.\n");
+
+            free(cwd_path);
+        }
+
+        else if (command_code == iPWD)
+        {
+            char pwd_path[256];
+            strcpy(pwd_path, "pwd ");
+            char *p = get_path(&path);
+            strcat(pwd_path, p);
+            printf("pwd_path: %s \n", pwd_path);
+            if (system(pwd_path) == -1)
+                printf("Invalid '!pwd' command\n");
+
+            free(p);
+        }
+        
     }
     // End of while loop
 

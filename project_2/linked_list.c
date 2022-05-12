@@ -73,7 +73,7 @@ char* get_path(linked_list* ls) {
     bzero(path, sizeof(path));
     
     if(ls->size == 0) {
-        strcpy(path, "/");
+        strcpy(path, " ");
         return path;
     }
     
