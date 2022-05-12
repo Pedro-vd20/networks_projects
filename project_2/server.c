@@ -40,15 +40,6 @@ int auth_user(char *username);
 int auth_pass(char *username, char *password);
 
 /**
- * @brief changes the current working directory 
- * 
- * @param path current path
- * @param new_path new path to append
- * @return int 0 if success
- */
-int parse_dir(linked_list* path, char* new_path);
-
-/**
  * @brief Get the port from port command
  * 
  * @param arg info passed by port command in form h1,h2,h3,h4,p1,p2 
@@ -325,7 +316,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
                 send(usersd, ERROR, LEN_ERROR, 0);
             }
             else {
-                if(parse_dir(&path, fname) == 0) {
+                if(parse_dir(&path, fname, 1) == 0) {
                     print(&path);
 
                     char response[256];
@@ -350,7 +341,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             char response[1024];
             bzero(response, sizeof(response));
 
-            strcat(response, PWD_CODE);
+            strcpy(response, PWD_CODE);
             strcat(response, p);
 
             send(usersd, response, strlen(response), 0);
@@ -557,31 +548,4 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
 
     close(transfer_sock);
 
-}
-
-int parse_dir(linked_list* path, char* new_path) {
-    // break down path by /
-    char* token = strtok(new_path, "/");
-
-    do {
-        if(strcmp(token, "..") == 0) {
-            if(path->size > 1) {
-                remove_node(path);
-            }
-            else {
-                return -1;
-            }
-        }
-        else {
-            char* temp = malloc(64);
-            bzero(temp, sizeof(temp));
-            strcpy(temp, token);
-            add_node(path, temp);
-        }
-
-        // get new token
-        token = strtok(NULL, "/");
-    } while(token != NULL);
-    
-    return 0;
 }

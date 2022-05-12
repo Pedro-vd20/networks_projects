@@ -69,12 +69,15 @@ int remove_node(linked_list* ls) {
 }
 
 char* get_path(linked_list* ls) {
-    if(ls->size == 0) {
-        return NULL;
-    }
-    
     char* path = malloc(1024);
     bzero(path, sizeof(path));
+    
+    if(ls->size == 0) {
+        strcpy(path, "/");
+        return path;
+    }
+    
+    
 
     struct node* curr = ls->head;
     for(int i = 0; i < ls->size; ++i) {
@@ -100,4 +103,31 @@ void print(linked_list* ls) {
     }
 
     printf("\n");
+}
+
+int parse_dir(linked_list* path, char* new_path, int min_len) {
+    // break down path by /
+    char* token = strtok(new_path, "/");
+
+    do {
+        if(strcmp(token, "..") == 0) {
+            if(path->size > min_len) {
+                remove_node(path);
+            }
+            else {
+                return -1;
+            }
+        }
+        else {
+            char* temp = malloc(64);
+            bzero(temp, sizeof(temp));
+            strcpy(temp, token);
+            add_node(path, temp);
+        }
+
+        // get new token
+        token = strtok(NULL, "/");
+    } while(token != NULL);
+    
+    return 0;
 }
