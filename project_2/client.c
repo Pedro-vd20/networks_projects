@@ -270,7 +270,7 @@ int main(int argc, char **argv)
             else if (command_code == iLIST)
             {
                 char ls_command[256];
-                strcpy(ls_command, "ls");
+                strcpy(ls_command, "ls ");
 
                 char *p = get_path(&path);
 
@@ -283,15 +283,28 @@ int main(int argc, char **argv)
 
             else if (command_code == iCWD)
             {
-                if (chdir(data) == -1)
+                char cwd_path[256];
+                char *p = get_path(&path);
+                printf("path: %s \n", p);
+                strcpy(cwd_path, p);
+                strcat(cwd_path, data);
+                printf("cwd_path %s \n", cwd_path);
+                if (chdir(cwd_path) == -1)
                     printf("Invalid '!cwd' command\n");
                 else
                     printf("Local directory successfully changed.\n");
+
+                free(p);
             }
 
             else if (command_code == iPWD)
             {
-                if (system("pwd") == -1)
+                char pwd_path[256];
+                strcpy(pwd_path, "pwd ");
+                char *p = get_path(&path);
+                strcat(pwd_path, p);
+                printf("pwd_path: %s \n", pwd_path);
+                if (system(pwd_path) == -1)
                     printf("Invalid '!pwd' command\n");
             }
         }
