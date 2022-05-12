@@ -38,48 +38,52 @@ int parse_command(char *msg, char *arg) {
         return 11;
     }
 
-    // collect argument
-    token = strtok(NULL, " ");
-
-    if (token == NULL)
-    {
-        return -2;
-    }
-    token = strtok(token, "\n");
-
-    strcpy(arg, token);
+    int ret = -1;
 
     // process commands with argument
     if (!strcmp(command, "PORT"))
     {
-        return 0;
+        ret = 0;
     }
     else if (!strcmp(command, "USER"))
     {
-        return 1;
+        ret = 1;
     }
     else if (!strcmp(command, "PASS"))
     {
-        return 2;
+        ret = 2;
     }
     else if (!strcmp(command, "STOR"))
     {
-        return 3;
+        ret = 3;
     }
     else if (!strcmp(command, "RETR"))
     {
-        return 4;
+        ret = 4;
     }
     else if (!strcmp(command, "CWD"))
     {
-        return 7;
+        ret = 7;
     }
     else if (!strcmp(command, "!CWD"))
     {
-        return 8;
+        ret = 8;
     }
 
-    return -1;
+    if(ret != -1) {
+        // collect argument
+        token = strtok(NULL, " ");
+
+        if (token == NULL)
+        {
+            return -2;
+        }
+        token = strtok(token, "\n");
+
+        strcpy(arg, token);
+    }
+    
+    return ret;
 }
 
 int parse_response(char *msg) {

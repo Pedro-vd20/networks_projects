@@ -37,5 +37,14 @@ int change_dir(linked_list*, char*);
 // Debug methods
 void print(linked_list*);
 
+/**
+ * @brief changes the current working directory 
+ * 
+ * @param path current path
+ * @param new_path new path to append
+ * @param min_len minimum length of directory tree
+ * @return int 0 if success
+ */
+int parse_dir(linked_list* path, char* new_path, int min_len);
 
 #endif
