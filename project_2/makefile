@@ -1,25 +1,25 @@
 all: server client
 
-client: client.o commands.o data_transfer.o linked_list.o
-	gcc client.o commands.o data_transfer.o linked_list.o -o client/client
+client: code/client.o code/commands.o code/data_transfer.o code/linked_list.o
+	gcc code/client.o code/commands.o code/data_transfer.o code/linked_list.o -o client/client
 
-client.o: client.c constants.h 
-	gcc -c client.c
+client.o: code/client.c code/constants.h 
+	gcc -c code/client.c
 
-server: server.o commands.o data_transfer.o linked_list.o
-	gcc server.o commands.o data_transfer.o linked_list.o -o server/server
+server: code/server.o code/commands.o code/data_transfer.o code/linked_list.o
+	gcc code/server.o code/commands.o code/data_transfer.o code/linked_list.o -o server/server
 
-server.o: server.c user.h constants.h linked_list.h
-	gcc -c server.c
+server.o: code/server.c code/user.h code/constants.h code/linked_list.h
+	gcc -c code/server.c
 
-commands.o: commands.h commands.c
-	gcc -c commands.c
+commands.o: code/commands.h code/commands.c
+	gcc -c code/commands.c
 
-data_transfer.o: data_transfer.h data_transfer.c
-	gcc -c data_transfer.c
+data_transfer.o: code/data_transfer.h code/data_transfer.c
+	gcc -c code/data_transfer.c
 
-linked_list.o: linked_list.h linked_list.c
-	gcc -c linked_list.c
+linked_list.o: code/linked_list.h code/linked_list.c
+	gcc -c code/linked_list.c
 
 clean:
-	rm *.o server/server client/client
+	rm code/*.o server/server client/client
