@@ -11,7 +11,6 @@
 #include "constants.h"
 #include "user.h"
 #include "data_transfer.h"
-#include "linked_list.h"
 
 #define USERNAME_OK "331 Username OK, need password\n"
 #define AUTHENTICATED "230 User logged in, proceed\n"
@@ -59,9 +58,9 @@ int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port);
 int main(int argc, char **argv)
 {
 
-    // Declare and verify socket file descriptor
-    linked_list path;
-    init(&path);
+    // // Declare and verify socket file descriptor
+    // linked_list path;
+    // init(&path);
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
     {
@@ -97,12 +96,13 @@ int main(int argc, char **argv)
     printf("1. type \"USER\" followed by a space and your username \n");
     printf("2. type \"PASS\" followed by a space and your password \n");
     printf("\n");
+    printf("\"QUIT\" to close connection at any moment\n");
     printf("Once Authenticated \n");
     printf("this is the list of commands : \n");
-    printf("\"STOR\" to send a file to the server \n");
-    printf("\"RETR\" to download a file from the server \n");
-    printf("\"LIST\" to  to list all the files under the current server directory \n");
-    printf("\"CWD\"  to change the current server directory \n");
+    printf("\"STOR\" + space + filename |to send a file to the server \n");
+    printf("\"RETR\" + space + filename |to download a file from the server \n");
+    printf("\"LIST\" |to  to list all the files under the current server directory \n");
+    printf("\"CWD\" + space + directory |to change the current server directory \n");
     printf("\"PWD\" to display the current server directory \n");
 
     printf("Add \"!\" before the last three commands to apply them locally \n\n");
