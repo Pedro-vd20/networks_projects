@@ -271,14 +271,14 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     if (transfer_sock < 0)
     {
         perror("Socket");
-        return 0;
+        return;
     }
 
     // bind socket
     if (setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
     {
         perror("binding faield! \n");
-        return 0;
+        return;
     }
 
     // bind socket
@@ -287,7 +287,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     if (bind(transfer_sock, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         perror("Bind failed..:");
-        return 0;
+        return;
     }
 
     // printf("Here 1\n");
@@ -297,7 +297,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     if (listen(transfer_sock, 5) < 0)
     {
         perror("Listen Error:");
-        return 0;
+        return;
     }
     printf("after listening... \n"); //##########DELETE
 
@@ -311,7 +311,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     if (server_sock < 1)
     {
         perror("Accept Error:");
-        return 0;
+        return;
     }
 
     printf("Port: %d\n", ntohs(server_address.sin_port));
@@ -363,7 +363,7 @@ int send_new_port(int sockfd, int new_port, char *input)
     if (recv(sockfd, bufferResponse, sizeof(bufferResponse), 0) < 0)
     {
         perror("recv issue, disconnecting");
-        return (void *)-1;
+        return 0;
     }
     printf("buffer response: %s", bufferResponse);
 
@@ -406,7 +406,7 @@ int send_new_port(int sockfd, int new_port, char *input)
     return start_thread;
 }
 
-int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port, int command, char* data) // I am passing socket as a pointer and it may cause issues
+int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port, int command, char *data) // I am passing socket as a pointer and it may cause issues
 {
     // open socket
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -456,8 +456,8 @@ int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port, i
     }
 
     printf("Port: %d\n", ntohs(server_address.sin_port));
-    
-    if(command)
 
-    return transfer_sock;
+    if (command)
+
+        return transfer_sock;
 }
