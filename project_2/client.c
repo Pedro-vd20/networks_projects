@@ -79,11 +79,9 @@ int main(int argc, char **argv)
     socklen_t clientsz = sizeof(client);
     getsockname(sockfd, (struct sockaddr *)&client, &clientsz);
 
-    printf("[%s:%i] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
     unsigned short control_port = ntohs(client.sin_port);
     // User Interface
-    printf("control socket connected!\n");
+
     // menu
     printf("Hello!! Please Authenticate to run server commands  \n");
     printf("1. type \"USER\" followed by a space and your username \n");
@@ -181,7 +179,6 @@ int main(int argc, char **argv)
             if (command_code == STOR)
             {
                 FILE *ptr = fopen(data, "r");
-                printf("File to send: %s\n", data);
 
                 // check if file exists
                 if (ptr == NULL)
@@ -262,9 +259,6 @@ int main(int argc, char **argv)
 
 void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char *data)
 {
-    printf("Now in new thread\n");
-
-    printf("w i data %s \n", data);
 
     // open socket
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -281,9 +275,6 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
         return;
     }
 
-    // bind socket
-    printf("Port: %d\n", port);
-
     struct sockaddr_in addr;
     bzero(&addr, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -298,20 +289,19 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     // printf("Here 1\n");
 
     // listen on port
-    printf("about to listen... \n");
+
     if (listen(transfer_sock, 5) < 0)
     {
         perror("Listen Error:");
         return;
     }
-    printf("after listening... \n"); //##########DELETE
 
     struct sockaddr_in server_address;
     bzero(&server_address, sizeof(server_address));
 
     // accept new connection from server
-    int server_len = sizeof(server_address);                                                               // lent of client cliend address of type sockaddr_in
-    printf("before accepting ...\n");                                                                      //#########DELETE
+    int server_len = sizeof(server_address); // length of client cliend address of type sockaddr_in
+
     int server_sock = accept(transfer_sock, (struct sockaddr *)&server_address, (socklen_t *)&server_len); // accept the connection but also fill the client address with client info
     if (server_sock < 1)
     {
@@ -319,19 +309,17 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
         return;
     }
 
-    printf("Port: %d\n", ntohs(server_address.sin_port));
-
     if (command_code == STOR)
     {
-        printf("I am inside store \n");
         send_file(server_sock, data);
         close(server_sock);
         close(transfer_sock);
     }
     else if (command_code == RETR) //
     {
-        printf("I am inside retrieve \n");
         receive_file(server_sock, data);
+        close(server_sock);
+        close(transfer_sock);
     }
     else if (command_code == LIST)
     {
@@ -356,6 +344,8 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
                 break;
             }
         }
+        close(server_sock);
+        close(transfer_sock);
     }
 }
 
@@ -363,15 +353,13 @@ int send_new_port(int sockfd, int new_port, char *input)
 {
     unsigned char p1 = new_port / 256; // higher byte of port
     unsigned char p2 = new_port % 256; // lower byte of port
-    printf("p1 %i \n", p1);
-    printf("p2 %i \n", p2);
+
     // Temporal buffer needed for string manipulation
     char portInfo[256] = "PORT 127,0,0,1,";
 
     // buffer that will be sent to the server
     char portInput[256];
     sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
-    printf("portInfo:  %s", portInput);
 
     // Send PORT to server
     send(sockfd, portInput, sizeof(portInput), 0);
@@ -384,7 +372,7 @@ int send_new_port(int sockfd, int new_port, char *input)
         perror("recv issue, disconnecting");
         return 0;
     }
-    printf("buffer response: %s", bufferResponse);
+    printf("%s", bufferResponse);
 
     // thread flag
     int start_thread = 0;
@@ -394,8 +382,6 @@ int send_new_port(int sockfd, int new_port, char *input)
         // buffer that stores the full input of the user
         char user_input[256];
         strcpy(user_input, input);
-        // send command (STOR/RETR/LIST) to server
-        printf("Sending: %s\n", user_input);
 
         send(sockfd, user_input, sizeof(user_input), 0);
 
@@ -403,7 +389,7 @@ int send_new_port(int sockfd, int new_port, char *input)
         bzero(bufferResponse, sizeof(bufferResponse));
         recv(sockfd, bufferResponse, sizeof(bufferResponse), 0);
 
-        printf("Server Response: %s", bufferResponse);
+        printf("%s", bufferResponse);
 
         // Server says file doesn't exist
         if (parse_response(bufferResponse) == 550)
@@ -413,7 +399,6 @@ int send_new_port(int sockfd, int new_port, char *input)
         // server says file okay
         else if (parse_response(bufferResponse) == 150)
         {
-            printf("start thread = 1 \n");
             start_thread = 1;
         }
     }
@@ -451,22 +436,16 @@ int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port, i
         return 0;
     }
 
-    // printf("Here 1\n");
-
-    // listen on port
-    printf("about to listen... \n");
     if (listen(transfer_sock, 5) < 0)
     {
         perror("Listen Error:");
         return 0;
     }
-    printf("after listening... \n"); //##########DELETE
 
     struct sockaddr_in server_address;
 
     // accept new connection from server
-    int server_len = sizeof(server_address);                                                               // lent of client cliend address of type sockaddr_in
-    printf("before accepting ...\n");                                                                      //#########DELETE
+    int server_len = sizeof(server_address);                                                               // length of client cliend address of type sockaddr_in
     int server_sock = accept(transfer_sock, (struct sockaddr *)&server_address, (socklen_t *)&server_len); // accept the connection but also fill the client address with client info
     if (server_sock < 1)
     {
