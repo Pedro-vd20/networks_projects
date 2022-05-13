@@ -47,13 +47,6 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
  * @param
  */
 int send_new_port(int sockfd, int new_port, char *input);
-/**
- * @brief Creates the data transfer tcp connection
- *
- * @param address //pointer to the client address with the new port
- * @param port //port in which the tcp connection will listen
- */
-int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port);
 
 int main(int argc, char **argv)
 {
@@ -273,8 +266,55 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
 
     printf("w i data %s \n", data);
 
-    // create_data_transfer_tcp
-    int transfer_sock = create_data_transfer_tcp(&address, port);
+    // open socket
+    int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (transfer_sock < 0)
+    {
+        perror("Socket");
+        return 0;
+    }
+
+    // bind socket
+    if (setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+    {
+        perror("binding faield! \n");
+        return 0;
+    }
+
+    // bind socket
+    printf("Port: %d\n", port);
+    address.sin_port = htons(port);
+    if (bind(transfer_sock, (struct sockaddr *)&address, sizeof(address)) < 0)
+    {
+        perror("Bind failed..:");
+        return 0;
+    }
+
+    // printf("Here 1\n");
+
+    // listen on port
+    printf("about to listen... \n");
+    if (listen(transfer_sock, 5) < 0)
+    {
+        perror("Listen Error:");
+        return 0;
+    }
+    printf("after listening... \n"); //##########DELETE
+
+    struct sockaddr_in server_address;
+    bzero(&server_address, sizeof(server_address));
+
+    // accept new connection from server
+    int server_len = sizeof(server_address);                                                               // lent of client cliend address of type sockaddr_in
+    printf("before accepting ...\n");                                                                      //#########DELETE
+    int server_sock = accept(transfer_sock, (struct sockaddr *)&server_address, (socklen_t *)&server_len); // accept the connection but also fill the client address with client info
+    if (server_sock < 1)
+    {
+        perror("Accept Error:");
+        return 0;
+    }
+
+    printf("Port: %d\n", ntohs(server_address.sin_port));
 
     if (command_code == STOR)
     {
@@ -366,7 +406,7 @@ int send_new_port(int sockfd, int new_port, char *input)
     return start_thread;
 }
 
-int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port) // I am passing socket as a pointer and it may cause issues
+int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port, int command, char* data) // I am passing socket as a pointer and it may cause issues
 {
     // open socket
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -384,6 +424,7 @@ int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port) /
     }
 
     // bind socket
+    printf("Port: %d\n", port);
     address->sin_port = htons(port);
     if (bind(transfer_sock, (struct sockaddr *)address, sizeof(*address)) < 0)
     {
@@ -415,5 +456,8 @@ int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port) /
     }
 
     printf("Port: %d\n", ntohs(server_address.sin_port));
+    
+    if(command)
+
     return transfer_sock;
 }

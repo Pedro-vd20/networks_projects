@@ -525,7 +525,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(transfer_sock < 0) {
         perror("Socket");
-        return (void*) -1;
+        return;
     }
 
     // printf("HERE 2\n");
@@ -550,7 +550,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
 	my_addr.sin_port = htons(TRANSFER_PORT);
 	if(bind(transfer_sock, (struct sockaddr *)(&my_addr),sizeof(my_addr)) < 0) {
         perror("Binding");
-        return (void*) -1;
+        return;
     }
     
     printf("Connecting to user\n");
