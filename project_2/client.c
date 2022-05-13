@@ -79,11 +79,9 @@ int main(int argc, char **argv)
     socklen_t clientsz = sizeof(client);
     getsockname(sockfd, (struct sockaddr *)&client, &clientsz);
 
-    printf("[%s:%i] > \n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
     unsigned short control_port = ntohs(client.sin_port);
     // User Interface
-    printf("control socket connected!\n");
+
     // menu
     printf("Hello!! Please Authenticate to run server commands  \n");
     printf("1. type \"USER\" followed by a space and your username \n");
