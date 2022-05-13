@@ -374,7 +374,7 @@ int send_new_port(int sockfd, int new_port, char *input)
         perror("recv issue, disconnecting");
         return 0;
     }
-    printf("buffer response: %s", bufferResponse);
+    printf("%s", bufferResponse);
 
     // thread flag
     int start_thread = 0;
@@ -391,7 +391,7 @@ int send_new_port(int sockfd, int new_port, char *input)
         bzero(bufferResponse, sizeof(bufferResponse));
         recv(sockfd, bufferResponse, sizeof(bufferResponse), 0);
 
-        printf("Server Response: %s", bufferResponse);
+        printf("%s", bufferResponse);
 
         // Server says file doesn't exist
         if (parse_response(bufferResponse) == 550)
