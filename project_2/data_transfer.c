@@ -30,9 +30,10 @@ int receive_file(int sockfd, char *filename)
         size = ntohl(temp_size);
         bzero(buffer, sizeof(buffer));
         n = recv(sockfd, buffer, size, 0);
+        if (strcmp(buffer, "226 Transfer completed.") == 0)
+            printf("%s \n", buffer);
         if (n <= 0)
         {
-            fclose(fp);
             printf("done reading file \n");
             break;
         }
