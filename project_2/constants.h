@@ -50,6 +50,8 @@
 #define LEN_QUIT_MSG 39
 #define NO_PORT "425 Can't open data connection. Port not specified\n"
 #define LEN_NO_PORT 51
+#define TRANSFER_COMPLETE "226 Transfer complete\n"
+#define LEN_TRANSFER_COMPLETE 22
 
 // before sending anything, you gotta wait and recv for this 220 command
 

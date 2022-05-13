@@ -283,8 +283,13 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
 
     // bind socket
     printf("Port: %d\n", port);
-    address.sin_port = htons(port);
-    if (bind(transfer_sock, (struct sockaddr *)&address, sizeof(address)) < 0)
+
+    struct sockaddr_in addr;
+    bzero(&addr, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    inet_aton("127.0.0.1", &(addr.sin_addr));
+    if (bind(transfer_sock, (struct sockaddr *)&addr, sizeof(address)) < 0)
     {
         perror("Bind failed..:");
         return 0;
@@ -328,15 +333,25 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     }
     else if (command_code == LIST)
     {
-        char bufferResponse[1500];                     // buffr to store response
-        bzero(bufferResponse, sizeof(bufferResponse)); // clean buffer
-        // wait for server to send a buffer with the list of files/directories
-        if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
-        {
-            perror("recv issue, disconnecting");
-            return;
+        char bufferResponse[1024];                     // buffr to store response
+        
+        while(1) {
+            bzero(bufferResponse, sizeof(bufferResponse)); // clean buffer
+            // wait for server to send a buffer with the list of files/directories
+            if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
+            {
+                printf("Nothing sent\n");
+                close(transfer_sock);
+                return;
+            }
+
+            printf("%s\n", bufferResponse);
+
+            if(strcmp(bufferResponse, TRANSFER_COMPLETE) == 0) {
+                close(transfer_sock);
+                break;
+            }
         }
-        printf("%s\n", bufferResponse);
     }
 }
 

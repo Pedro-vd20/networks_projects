@@ -518,6 +518,10 @@ int get_port(char* arg, unsigned int* p1, unsigned int* p2) {
 
 void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command, char* fname) {
 
+    // send(transfer_sock, "hello there\n", 13, 0);
+
+    // close(transfer_sock);
+    
     printf("Now in thread\n");
     
     // printf("HERE \n");
@@ -536,7 +540,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
 	bzero(&client_addr,sizeof(client_addr));
 	client_addr.sin_family = AF_INET;
 	client_addr.sin_port = htons(port);
-	client_addr.sin_addr.s_addr = addr->sin_addr.s_addr; 
+    inet_aton("127.0.0.1", &(client_addr.sin_addr)); 
 
     // printf("HERE 3\n");
 
@@ -575,7 +579,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
     }
     else {
         printf("Listing directory\n");
-
+        
         
     }
 
