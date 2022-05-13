@@ -11,6 +11,7 @@
 #include "user.h"
 #include "commands.h"
 #include "linked_list.h"
+#include "data_transfer.h"
 
 
 /**
@@ -140,7 +141,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
     int port_f = 0; // checks if user has already sent port info
     unsigned long port; // holds port info
     char username[50];
-    linked_list path;
+    linked_list path; // this prevents a user from accessing data from other users
     init(&path);
     bzero(username, sizeof(username));
 
@@ -286,16 +287,69 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
             }          
         }
 
-        else if(command == STOR) {
-            printf("STOR command\n");   
-        }
+        else if(command == STOR || command == RETR || command == LIST) {
+            printf("STOR, RETR or LIST\n");
 
-        else if(command == RETR) {
-            printf("RETR command\n");
-        }
+            if(port_f) {
+                int fork_f = 1; // used when user uses RETR to check if file exists
 
-        else if(command == LIST) {
-            printf("LIST command\n");
+                if(command == RETR) {
+                    printf("Command is RETR, checking if file exists\n");
+                    char* p = get_path(&path);
+
+                    char full_fname[1024];
+                    bzero(full_fname, sizeof(full_fname));
+
+                    // construct full file path
+                    strcpy(full_fname, p);
+                    strcat(full_fname, fname);
+                    printf("File to retrieve: %s\n", full_fname);
+
+                    FILE* ptr = fopen(full_fname, "r");
+                    if(ptr == NULL) {
+                        printf("File not found");
+                        send(usersd, NO_SUCH_FILE, LEN_NO_SUCH_FILE, 0);
+                        fork_f = 0;
+                    }
+                    else {
+                        fclose(ptr);
+                    }
+
+                    free(p);
+                }
+
+                // send the okay command
+                if(fork_f) {
+                    printf("File okay, beginning data connections\n");
+                    send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
+
+                    // fork process
+                    int fid = -1;
+                    fid = fork();
+                    if(fid == 0) {
+                        char* p = get_path(&path);
+                        char full_fname[1024];
+                        bzero(full_fname, sizeof(full_fname));
+
+                        strcpy(full_fname, p);
+                        if(command != LIST) {
+                            strcat(full_fname, fname);
+                        }
+                        printf("Full path requested: %s\n", full_fname);
+
+                        handle_transfer(port, &user_addr, command, full_fname);
+                        free(p);
+                        return;
+                    }
+                }
+
+                port_f = 0; // reset port flag for future commands
+            }
+            else {
+                // no port previously specified, error
+                printf("Port wasn't previously specified\n");
+                send(usersd, NO_PORT, LEN_NO_PORT, 0); // this in theory should never run, as port command is always sent before
+            }
         }
 
         else if(command == CWD) {
@@ -352,45 +406,7 @@ void handle_user(int usersd, struct sockaddr_in* user_addr) {
         else if(command == QUIT) {
             send(usersd, QUIT_MSG, LEN_QUIT_MSG, 0);
         }
-        /*
-            else if(command == RETR || command == STOR || command == LIST) {
-                if(!port_f) {
-                    printf("Port not specified\n");
-                    send(usersd, ERROR, LEN_ERROR, 0);
-                }
-                else {
-                    
-                    // flag to check if everything okay
-                    int start_connection = 1;
-
-                    if(command == RETR) {
-                        // check if file exists
-                        FILE* ptr = fopen(fname, "r");
-                        if(ptr == NULL) {
-                            send(usersd, NO_SUCH_FILE, LEN_NO_SUCH_FILE, 0);
-                            start_connection = 0;
-                        }
-                        else {
-                            fclose(ptr);
-                        }
-                    }
-                    
-                    send(usersd, FILE_OKAY, LEN_FILE_OKAY, 0);
-
-                    int pid = -1;
-                    pid = fork();
-
-                    if(pid == 0) {
-                        handle_transfer(port, &user_addr, command, fname);
-                        return;
-                    }
-
-                    port_f = 0;
-                }
-            }
-        }*/
-    
-
+  
     }
 
     printf("Out of loop!\n");
@@ -504,7 +520,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
 
     printf("Now in thread\n");
     
-    printf("HERE \n");
+    // printf("HERE \n");
     
     int transfer_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(transfer_sock < 0) {
@@ -512,7 +528,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
         return (void*) -1;
     }
 
-    printf("HERE 2\n");
+    // printf("HERE 2\n");
 
     //setsock
 	setsockopt(transfer_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); 
@@ -522,7 +538,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
 	client_addr.sin_port = htons(port);
 	client_addr.sin_addr.s_addr = addr->sin_addr.s_addr; 
 
-    printf("HERE 3\n");
+    // printf("HERE 3\n");
 
     printf("Set up client addess\n");
 
@@ -537,14 +553,31 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
         return (void*) -1;
     }
     
-    printf("Gonna connect to user\n");
+    printf("Connecting to user\n");
 
     // connect to client
     while (connect(transfer_sock, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
 
     }
 
-    
+    printf("Connection success\n");
+
+    // once connection established
+    if(command == RETR) {
+        printf("Sending file\n");
+
+        send_file(transfer_sock, fname);
+    }
+    else if(command == STOR) {
+        printf("Storing file\n");
+
+        receive_file(transfer_sock, fname);
+    }
+    else {
+        printf("Listing directory\n");
+
+        
+    }
 
     close(transfer_sock);
 
