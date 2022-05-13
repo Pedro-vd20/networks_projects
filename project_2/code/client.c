@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 
     printf("Add \"!\" before the last three commands to apply them locally \n\n");
 
-    int port_counter = 1;
+    int port_counter = 4;
     char first_buffer[256];
     bzero(first_buffer, 256);
     recv(sockfd, first_buffer, 256, 0);
@@ -195,7 +195,8 @@ int main(int argc, char **argv)
             if (f_exists)
             {
 
-                unsigned short new_port = control_port + port_counter++;
+                unsigned short new_port = control_port + (port_counter * port_counter);
+                port_counter++;
 
                 // set up port
                 int start_thread = send_new_port(sockfd, new_port, input);
