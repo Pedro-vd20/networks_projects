@@ -324,18 +324,21 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     if (command_code == STOR)
     {
         printf("I am inside store \n");
-        send_file(transfer_sock, data);
+        send_file(server_sock, data);
+        close(server_sock);
+        close(transfer_sock);
     }
     else if (command_code == RETR) //
     {
         printf("I am inside retrieve \n");
-        receive_file(transfer_sock, data);
+        receive_file(server_sock, data);
     }
     else if (command_code == LIST)
     {
-        char bufferResponse[1024];                     // buffr to store response
-        
-        while(1) {
+        char bufferResponse[1024]; // buffr to store response
+
+        while (1)
+        {
             bzero(bufferResponse, sizeof(bufferResponse)); // clean buffer
             // wait for server to send a buffer with the list of files/directories
             if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
@@ -347,7 +350,8 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
 
             printf("%s\n", bufferResponse);
 
-            if(strcmp(bufferResponse, TRANSFER_COMPLETE) == 0) {
+            if (strcmp(bufferResponse, TRANSFER_COMPLETE) == 0)
+            {
                 close(transfer_sock);
                 break;
             }
