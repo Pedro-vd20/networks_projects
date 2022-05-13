@@ -1,38 +1,4 @@
 
-/*
-    We can have a single extra file commands.c to do all command processing
-        Check if command has right num of arguments
-        Check if command is valid
-
-        Possibly could return num
-            -1 means error
-            0 - n are for each ith command
-
-        Manage response codes
-*/
-
-/*
-Testing:
-    1. Correct authentication
-    2. Get file
-        2.1 Correct port 20 stuff
-        2.2 Correct multi-multi threading
-        2.3 Correct merging of threads
-        2.4 Correct sending of file
-    3. Store file
-        (should work similar to get file)
-    4. List files
-        4.1 Client
-        4.2 Server
-    5. CWD && PWD
-        5.1 Change client directory
-        5.2 Change server directory
-    6. Quit
-
-
-
-*/
-
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -68,15 +34,20 @@ Testing:
 // #define QUIT 11
 
 /**
- * @brief maintains control of connection for each client
+ * @brief maintains control of connection for each transfer. Concurrent Transfer Implement
  *
  * @param arg client information
  */
 void handle_transfer(unsigned short port, struct sockaddr_in address, int command_code, char *data);
-int ask_server_if_file_exists(int sockfd);
-int create_tcp_connection(int port);
+
+/**
+ * @brief Makes port calculation and send  to the server the port in which the client will listen
+ *
+ * @param sockfd control socket
+ * @param new_port N + i port, where client will listen
+ * @param
+ */
 int send_new_port(int sockfd, int new_port, char *input);
-int create_data_transfer_tcp(struct sockaddr_in *address, unsigned short port, int command_code, char* data);
 
 int main(int argc, char **argv)
 {
@@ -258,11 +229,6 @@ int main(int argc, char **argv)
                 break;
             }
             printf("%s\n", bufferResponse);
-
-            if (parse_response(bufferResponse) == 150)
-            {
-                // start thread here
-            }
         }
         else if (command_code == iLIST)
         {
@@ -362,15 +328,15 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
     }
     else if (command_code == LIST)
     {
-        char bufferResponse[1500];
-        bzero(bufferResponse, sizeof(bufferResponse));
+        char bufferResponse[1500];                     // buffr to store response
+        bzero(bufferResponse, sizeof(bufferResponse)); // clean buffer
+        // wait for server to send a buffer with the list of files/directories
         if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
         {
             perror("recv issue, disconnecting");
             return;
         }
         printf("%s\n", bufferResponse);
-        // bzero(&bufferResponse, sizeof(bufferResponse));
     }
 }
 
@@ -380,9 +346,10 @@ int send_new_port(int sockfd, int new_port, char *input)
     unsigned char p2 = new_port % 256; // lower byte of port
     printf("p1 %i \n", p1);
     printf("p2 %i \n", p2);
+    // Temporal buffer needed for string manipulation
     char portInfo[256] = "PORT 127,0,0,1,";
-    char user_input[256];
-    strcpy(user_input, input);
+
+    // buffer that will be sent to the server
     char portInput[256];
     sprintf(portInput, "%s%i,%i\n", portInfo, p1, p2);
     printf("portInfo:  %s", portInput);
@@ -405,7 +372,9 @@ int send_new_port(int sockfd, int new_port, char *input)
     // Send actual command after authenticating port
     if (parse_response(bufferResponse) == 200)
     {
-
+        // buffer that stores the full input of the user
+        char user_input[256];
+        strcpy(user_input, input);
         // send command (STOR/RETR/LIST) to server
         printf("Sending: %s\n", user_input);
 
