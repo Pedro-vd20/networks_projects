@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <dirent.h>
 
 #include "constants.h"
 #include "user.h"
@@ -579,7 +580,25 @@ void handle_transfer(unsigned short port, struct sockaddr_in* addr, int command,
     }
     else {
         printf("Listing directory\n");
+
+        // open dir
+        DIR *d;
+        struct dirent *dir; 
+        d = opendir(fname);
+        if (d) {
+            char buffer[256];
+            while ((dir = readdir(d)) != NULL) {
+                bzero(buffer, sizeof(buffer));
+
+                sprintf(buffer, "%s", dir->d_name);
+                printf("%s\n", buffer);
+                printf("Length: %ld\n", strlen(buffer));
+                send(transfer_sock, buffer, strlen(buffer), 0);
+            }
+            closedir(d);
+        }
         
+        send(transfer_sock, TRANSFER_COMPLETE, LEN_TRANSFER_COMPLETE, 0);
         
     }
 

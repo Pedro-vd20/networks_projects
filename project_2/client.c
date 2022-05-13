@@ -341,7 +341,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
         {
             bzero(bufferResponse, sizeof(bufferResponse)); // clean buffer
             // wait for server to send a buffer with the list of files/directories
-            if (recv(transfer_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
+            if (recv(server_sock, bufferResponse, sizeof(bufferResponse), 0) < 0)
             {
                 printf("Nothing sent\n");
                 close(transfer_sock);
