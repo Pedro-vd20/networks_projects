@@ -61,7 +61,6 @@ int receive_file(int sockfd, char *filename)
         fseek(fp, offset, SEEK_SET);
         fwrite(buffer, 1, n, fp); // is n equal to 1024 in most cases?
         offset += n;
-        
     }
 
     return 0;
