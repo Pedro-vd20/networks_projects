@@ -34,22 +34,22 @@ TEST QUIT
 1: QUIT
 Expected Response: Connection Closed 
 
-TEST Entere USER or PASS once Authenticated
+TEST Entere USER or PASS once Authenticated (signs user out and asks for new auth)
 once succesfully Authenticated
 1: USER bob
-Expected Response: User already Authenticated
+Expected Response: 331 Username Ok 
 2: PASS donuts
-Expected Response: User already Authenticated
+Expected Response: 230 User logged in
+If you type PWD command now, it will be from bob's directory, not previous user
 
 -------------------TESTS FOR LOCAL CLIENT--------------------------
-Once Authenticated......
 TEST Print Client Working Directory
 1: !PWD
 Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2"
 
 TEST Print List of files of cwd
 1: !LIST
-Expected Response: List of files of current working directory i.e "client.c server.c text.txt images"
+Expected Response: List of files of current working directory i.e "donut_recipe.pdf  dummy_send.txt  images  penguin.jpeg  prayer.txt  rick_astley_never_gonna_give_you_up.mp4  squirrel_census.csv"
 
 TEST Change current working directory
 1: !CWD images 
@@ -61,35 +61,35 @@ Expected Response: Failure changing directory: directory does not exist
 
 TEST Test for Working Directory Fluency; Check if local commands work together
 1: !PWD
-Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2"
+Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2/client" (for our own machine)
 2: !LIST
-Expected Response: List of files of current working directory i.e "client.c server.c text.txt images"
+Expected Response: List of files of current working directory i.e "donut_recipe.pdf  dummy_send.txt  images  penguin.jpeg  prayer.txt  rick_astley_never_gonna_give_you_up.mp4  squirrel_census.csv"
 3: !CWD images
 Expected Response: Succesful change local directory
 4: !PWD 
-Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2/images"
+Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2/client/images"
 5: !LIST
 Expected Response: List of files of current working directory i.e "horse.jpg penguin.jpg professor.jpeg"
 6: !CWD ..
 Expected Response: Succesful change local directory
 7:!PWD
-Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2"
+Expected Response: Current working directory Path  i.e "/Users/user1/ComputerNetworks/project_2/client"
 
 
 ---------------------------------TESTS WORKING DIRECTORIES COMMAND ON SERVER (PWD, CWD)-------------------------------
 TEST Working directories of server 
 1.PWD
-Expected Response: ServerPAth i.e "/Users/user1/ComputerNetworks/project_2/server/bob"
+Expected Response: ServerPAth i.e "bob/"
 2.CWD donuts
 Expected Response: Succesful change local directory
 3.PWD
-Expected Response: ServerPAth i.e "/Users/user1/ComputerNetworks/project_2/server/bob/donuts"
+Expected Response: ServerPAth i.e "bob/donuts/"
 4.CWD directory_that_does_not_exist
 Expected Response: Failure changing directory: directory does not exist 
 5.CWD ..
 Expected Response: Succesful change local directory
 6.PWD
-Expected Response: ServerPAth i.e "/Users/user1/ComputerNetworks/project_2/server/bob"
+Expected Response: ServerPAth i.e "bob/"
 
 
 
