@@ -48,6 +48,8 @@
 #define CWD_CODE "200 directory changed to "
 #define QUIT_MSG "221 Service closing control connection\n"
 #define LEN_QUIT_MSG 39
+#define NO_PORT "425 Can't open data connection. Port not specified\n"
+#define LEN_NO_PORT 51
 
 // before sending anything, you gotta wait and recv for this 220 command
 
