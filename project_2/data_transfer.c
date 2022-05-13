@@ -8,12 +8,7 @@
 
 int receive_file(int sockfd, char *filename)
 {
-    printf("Receiving %s\n", filename);
-
-    // open file
-    FILE* fp = fopen(filename, "wb");
-    
-    /*printf("starting receive file .... \n"); //**********DELETE
+    printf("starting receive file .... \n"); //**********DELETE
     FILE *fp;
     fp = fopen(filename, "wb");
     if (fp == NULL)
@@ -47,14 +42,14 @@ int receive_file(int sockfd, char *filename)
         // offset += n;
     }
     fclose(fp);
-    return 0;*/
+    return 0;
 }
 
 int send_file(int sockfd, char *filename)
 {
     printf("Sending %s\n", filename);
 
-    FILE* fp = fopen(filename, "rb");
+    FILE* fp = fopen(filename, "r");
     if(fp == NULL)
     {
         perror("file not found");
@@ -85,6 +80,44 @@ int send_file(int sockfd, char *filename)
     // Send file transmission finished signal
     send(sockfd, TRANSFER_COMPLETE, LEN_TRANSFER_COMPLETE, 0);
     fclose(fp);
+
+    return 0;
+     
+    /*printf("starting send file \n");
+    FILE *fp;
+    fp = fopen(filename, "r");
+    if (fp == NULL)
+    {
+        perror("file nout found");
+        return 0;
+    }
+    int n;
+    char buffer[1024];
+    int bytes_read;
+    int bytes_sent;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+    {
+
+        int i = 0;
+        do
+        {
+            int32_t convert_size = bytes_read;
+            send(sockfd, &convert_size, sizeof(convert_size), 0);
+            bytes_sent += send(sockfd, buffer, bytes_read, 0);
+
+            bytes_read = bytes_read - bytes_sent;
+
+        } while (bytes_read > 0);
+        bzero(buffer, sizeof(buffer));
+    }
+
+    char success_response[256] = "226 Transfer completed.";
+    int bytes_response = 23;
+    int32_t response_size = bytes_response;
+    send(sockfd, &response_size, sizeof(response_size), 0);
+    send(sockfd, success_response, sizeof(success_response), 0);
+    printf("Done sending file \n");
+    fclose(fp); */
 
     return 0;
 }
