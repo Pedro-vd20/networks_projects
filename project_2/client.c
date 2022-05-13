@@ -183,20 +183,23 @@ int main(int argc, char **argv)
         {
             // client closes connection and terminates program
             send(sockfd, input, sizeof(input), 0);
-            
+
             bzero(response, sizeof(response));
-            if(recv(sockfd, response, sizeof(response), 0) < 0) {
+            if (recv(sockfd, response, sizeof(response), 0) < 0)
+            {
                 perror("recv error!!");
                 break;
             }
 
             printf("%s", response);
 
-            if(parse_response(response) == 221) {
+            if (parse_response(response) == 221)
+            {
                 close(sockfd);
                 break; // ends while loop
             }
-            else {
+            else
+            {
                 printf("Error sending QUIT command\n");
             }
         }
@@ -255,54 +258,34 @@ int main(int argc, char **argv)
                 break;
             }
             printf("%s\n", bufferResponse);
-            
-            if(parse_response(bufferResponse) == 150) {
+
+            if (parse_response(bufferResponse) == 150)
+            {
                 // start thread here
             }
-            
         }
         else if (command_code == iLIST)
         {
-            char ls_command[256];
-            strcpy(ls_command, "ls ");
 
-            char *p = get_path(&path);
-
-            strcat(ls_command, p);
-
-            if (system(ls_command) == -1)
+            if (system("ls") == -1)
                 printf("Invalid '!ls' command\n");
-            free(p);
         }
 
         else if (command_code == iCWD)
         {
-            add_node(&path, data);
 
-            char *cwd_path = get_path(&path);
-
-            printf("cwd_path %s \n", cwd_path);
-            if (chdir(cwd_path) == -1)
+            if (chdir(data) == -1)
                 printf("Invalid '!cwd' command\n");
             else
                 printf("Local directory successfully changed.\n");
-
-            free(cwd_path);
         }
 
         else if (command_code == iPWD)
         {
-            char pwd_path[256];
-            strcpy(pwd_path, "pwd ");
-            char *p = get_path(&path);
-            strcat(pwd_path, p);
-            printf("pwd_path: %s \n", pwd_path);
-            if (system(pwd_path) == -1)
-                printf("Invalid '!pwd' command\n");
 
-            free(p);
+            if (system("pwd") == -1)
+                printf("Invalid '!pwd' command\n");
         }
-        
     }
     // End of while loop
 
@@ -340,7 +323,7 @@ void handle_transfer(unsigned short port, struct sockaddr_in address, int comman
             return;
         }
         printf("%s\n", bufferResponse);
-        bzero(&bufferResponse, sizeof(bufferResponse));
+        // bzero(&bufferResponse, sizeof(bufferResponse));
     }
 }
 
